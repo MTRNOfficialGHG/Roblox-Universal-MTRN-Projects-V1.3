@@ -1,6 +1,6 @@
 --[[
     MTRN Projects V1.3
-    Complete - Info + Player + ESP + Fling Tab
+    Complete - Info + Player + ESP + Fling (Tweaks applied)
 --]]
 
 local Players          = game:GetService("Players")
@@ -1402,7 +1402,6 @@ end
 -- ═══════════════════════════════════════════════════════════
 local flingContainer = pages["Fling"].container
 
--- ─── Top Buttons Row ───
 local topRow = Instance.new("Frame")
 topRow.Size = UDim2.new(1, 0, 0, 30)
 topRow.Position = UDim2.new(0, 0, 0, 0)
@@ -1436,7 +1435,6 @@ local startFlingBtn   = makeFlingBtn("Start Fling", 82, COLORS.Green)
 local stopFlingBtn    = makeFlingBtn("Stop Fling", 78, COLORS.Red)
 stopFlingBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
 
--- ─── Status Label ───
 local statusLabel = Instance.new("TextLabel")
 statusLabel.Size = UDim2.new(1, 0, 0, 18)
 statusLabel.Position = UDim2.new(0, 0, 0, 34)
@@ -1448,7 +1446,6 @@ statusLabel.TextColor3 = COLORS.SubText
 statusLabel.TextXAlignment = Enum.TextXAlignment.Left
 statusLabel.Parent = flingContainer
 
--- ─── Follow Sliders ───
 local slidersSection = Instance.new("Frame")
 slidersSection.Size = UDim2.new(1, 0, 0, 56)
 slidersSection.Position = UDim2.new(0, 0, 0, 56)
@@ -1495,7 +1492,6 @@ xzSliderHolder.Parent = slidersSection
 
 local xzSlider = createSlider(xzSliderHolder, -50, 50, -3, function(v) followState.xz = v end)
 
--- ─── Player List ───
 local playerListLabel = Instance.new("TextLabel")
 playerListLabel.Size = UDim2.new(1, 0, 0, 16)
 playerListLabel.Position = UDim2.new(0, 0, 0, 118)
@@ -1574,7 +1570,6 @@ local function startView(plr)
     cam.CameraSubject = targetHum
     viewTarget = plr
 
-    -- White chams on own character
     local myChar = LocalPlayer.Character
     if myChar then
         local hl = Instance.new("Highlight")
@@ -1609,7 +1604,6 @@ local function rebuildPlayerList()
         row.Parent = playerList
         Instance.new("UICorner", row).CornerRadius = UDim.new(0, 6)
 
-        -- Checkbox
         local checkbox = Instance.new("TextButton")
         checkbox.Size = UDim2.new(0, 18, 0, 18)
         checkbox.Position = UDim2.new(0, 6, 0.5, -9)
@@ -1629,7 +1623,6 @@ local function rebuildPlayerList()
         checkMark.TextColor3 = COLORS.Green
         checkMark.Parent = checkbox
 
-        -- Name
         local nameLbl = Instance.new("TextLabel")
         nameLbl.Size = UDim2.new(1, -200, 1, 0)
         nameLbl.Position = UDim2.new(0, 30, 0, 0)
@@ -1642,7 +1635,6 @@ local function rebuildPlayerList()
         nameLbl.TextTruncate = Enum.TextTruncate.AtEnd
         nameLbl.Parent = row
 
-        -- Buttons Frame (rechts)
         local btnsFrame = Instance.new("Frame")
         btnsFrame.Size = UDim2.new(0, 170, 1, 0)
         btnsFrame.Position = UDim2.new(1, -4, 0, 0)
@@ -1676,35 +1668,27 @@ local function rebuildPlayerList()
         local viewRowBtn   = makeRowBtn("View", 44, COLORS.Row)
         local followRowBtn = makeRowBtn("Follow", 52, COLORS.Row)
 
-        if followTarget == plr then
-            followRowBtn.BackgroundColor3 = COLORS.Green
-        end
-        if viewTarget == plr then
-            viewRowBtn.BackgroundColor3 = COLORS.Green
-        end
+        if followTarget == plr then followRowBtn.BackgroundColor3 = COLORS.Green end
+        if viewTarget == plr then viewRowBtn.BackgroundColor3 = COLORS.Green end
 
-        -- Checkbox click
         checkbox.MouseButton1Click:Connect(function()
             flingSelected[plr] = not flingSelected[plr]
             checkMark.Text = flingSelected[plr] and "✓" or ""
             updateStatusLabel()
         end)
 
-        -- TP
         tpRowBtn.MouseButton1Click:Connect(function()
             local myHrp = getHRP()
             local tgt = plr.Character and plr.Character:FindFirstChild("HumanoidRootPart")
             if myHrp and tgt then myHrp.CFrame = tgt.CFrame + Vector3.new(0, 0, -3) end
         end)
 
-        -- View
         viewRowBtn.MouseButton1Click:Connect(function()
             if viewTarget == plr then
                 stopView()
                 viewRowBtn.BackgroundColor3 = COLORS.Row
             else
                 startView(plr)
-                -- Reset alle anderen View-Buttons
                 for _, r in ipairs(playerList:GetChildren()) do
                     if r:IsA("Frame") then
                         for _, b in ipairs(r:GetDescendants()) do
@@ -1718,7 +1702,6 @@ local function rebuildPlayerList()
             end
         end)
 
-        -- Follow
         followRowBtn.MouseButton1Click:Connect(function()
             if followTarget == plr then
                 followTarget = nil
@@ -1752,7 +1735,6 @@ Players.PlayerRemoving:Connect(function(plr)
     rebuildPlayerList()
 end)
 
--- ─── Select / Deselect All ───
 selectAllBtn.MouseButton1Click:Connect(function()
     for _, plr in ipairs(Players:GetPlayers()) do
         if plr ~= LocalPlayer then flingSelected[plr] = true end
@@ -1769,7 +1751,6 @@ end)
 local function startFling()
     if flingState.active then return end
 
-    -- Sammle alle ausgewählten Spieler
     local targets = {}
     for _, plr in ipairs(Players:GetPlayers()) do
         if plr ~= LocalPlayer and flingSelected[plr] and plr.Character then
@@ -1791,7 +1772,6 @@ local function startFling()
     flingState.lastSwitch = tick()
     flingState.originalCF = myHrp.CFrame
 
-    -- Self noclip (außer HRP)
     local myChar = LocalPlayer.Character
     if myChar then
         for _, part in ipairs(myChar:GetDescendants()) do
@@ -1801,7 +1781,6 @@ local function startFling()
         end
     end
 
-    -- Extreme Spin auf HRP
     myHrp.CanCollide = true
     local spin = Instance.new("BodyAngularVelocity")
     spin.MaxTorque = Vector3.new(math.huge, math.huge, math.huge)
@@ -1813,27 +1792,50 @@ local function startFling()
     updateStatusLabel()
 end
 
+-- ─── Stop Fling (mit 1s Anchor-Phase) ───
 local function stopFling()
     if not flingState.active then return end
     flingState.active = false
 
+    -- 1. Angular Velocity killen
     if flingState.angularVel then
         flingState.angularVel:Destroy()
         flingState.angularVel = nil
     end
 
-    -- Zurück zur ursprünglichen Position
     local myHrp = getHRP()
-    if myHrp and flingState.originalCF then
-        myHrp.CFrame = flingState.originalCF
+    local myChar = LocalPlayer.Character
+
+    if myHrp then
+        -- 2. Velocity resetten
         myHrp.Velocity = Vector3.new(0, 0, 0)
+        myHrp.RotVelocity = Vector3.new(0, 0, 0)
+
+        -- 3. HRP ankern → Physik klingt ab
+        myHrp.Anchored = true
+
+        -- 4. 1 Sekunde warten bis Netzwerk-Physik sich beruhigt hat
+        task.wait(1)
+
+        -- 5. Zurück zur Original-Position
+        if flingState.originalCF then
+            myHrp.CFrame = flingState.originalCF
+        end
+        myHrp.Velocity = Vector3.new(0, 0, 0)
+
+        -- 6. Kurz weiter warten
+        task.wait(0.15)
+
+        -- 7. Anker lösen
+        myHrp.Anchored = false
     end
 
-    -- Kollision wiederherstellen
-    local myChar = LocalPlayer.Character
+    -- 8. Kollision wiederherstellen
     if myChar then
         for _, part in ipairs(myChar:GetDescendants()) do
-            if part:IsA("BasePart") then part.CanCollide = true end
+            if part:IsA("BasePart") then
+                part.CanCollide = true
+            end
         end
     end
 
@@ -1843,18 +1845,20 @@ local function stopFling()
 end
 
 startFlingBtn.MouseButton1Click:Connect(startFling)
-stopFlingBtn.MouseButton1Click:Connect(stopFling)
+stopFlingBtn.MouseButton1Click:Connect(function()
+    task.spawn(stopFling)
+end)
 
--- ─── Fling Loop ───
+-- ─── Fling Loop (3.8s switch) ───
 RunService.Heartbeat:Connect(function()
     if not flingState.active then return end
     local targets = flingState.targets
     if #targets == 0 then stopFling(); return end
 
-    -- Multi-target: alle 3 Sekunden wechseln
+    -- Multi-target: alle 3.8 Sekunden wechseln
     if #targets > 1 then
         local now = tick()
-        if now - flingState.lastSwitch > 3 then
+        if now - flingState.lastSwitch > 3.8 then
             flingState.index = (flingState.index % #targets) + 1
             flingState.lastSwitch = now
         end
@@ -1864,7 +1868,6 @@ RunService.Heartbeat:Connect(function()
 
     local target = targets[flingState.index]
     if not target or not target.Character then
-        -- Nächsten Ziel suchen
         flingState.index = (flingState.index % #targets) + 1
         return
     end
@@ -1873,7 +1876,6 @@ RunService.Heartbeat:Connect(function()
     local myHrp = getHRP()
     if not tHRP or not myHrp then return end
 
-    -- Teleportiere direkt in das Ziel + kleiner Jitter
     local jitter = Vector3.new(
         (math.random() - 0.5) * 0.2,
         (math.random() - 0.5) * 0.2,
@@ -1890,17 +1892,13 @@ end)
 -- ─── Follow Loop ───
 RunService.Heartbeat:Connect(function()
     if not followTarget then return end
-    if flingState.active then return end -- Fling hat Vorrang
+    if flingState.active then return end
     if not followTarget.Character then followTarget = nil; return end
 
     local tHRP = followTarget.Character:FindFirstChild("HumanoidRootPart")
     local myHrp = getHRP()
     if not tHRP or not myHrp then return end
 
-    -- Offset anwenden: +Z = hinter (Roblox -Z ist "vorne")
-    -- Slider xz: negativ = hinter, positiv = vorne
-    -- In local space: -Z = vorne, +Z = hinten
-    -- Also: vorne (slider +X) → -Z offset, hinten (slider -X) → +Z offset
     local zOffset = -followState.xz
     local yOffset = followState.y
 
@@ -1955,7 +1953,8 @@ end
 local YesBtn = makeDialogBtn("Yes", UDim2.new(0, 15, 1, -50), COLORS.Green)
 local NoBtn  = makeDialogBtn("No",  UDim2.new(1, -135, 1, -50), COLORS.Red)
 YesBtn.MouseButton1Click:Connect(function()
-    stopFling(); stopView()
+    task.spawn(stopFling)
+    stopView()
     ScreenGui:Destroy()
 end)
 NoBtn.MouseButton1Click:Connect(function() ConfirmFrame.Visible = false end)
