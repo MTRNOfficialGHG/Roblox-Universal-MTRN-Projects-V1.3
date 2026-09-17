@@ -1,6 +1,6 @@
 --[[
     MTRN Projects V1.3
-    Complete - Info + Player + ESP + Fling (Tweaks applied)
+    Complete - Info + Player + ESP + Fling + Smooth Fly
 --]]
 
 local Players          = game:GetService("Players")
@@ -915,12 +915,15 @@ end
 local flyUpBtn = makeFlyBtn("▲", 1)
 local flyDownBtn = makeFlyBtn("▼", 2)
 
+-- ─── FLY (Smooth / Wall-Adaptive) ───
 local flyBodyVel
+local flyBodyGyro
 local flyConnection
 
 local function stopFly()
     if flyConnection then flyConnection:Disconnect(); flyConnection = nil end
-    if flyBodyVel then flyBodyVel:Destroy(); flyBodyVel = nil end
+    if flyBodyVel  then flyBodyVel:Destroy();  flyBodyVel  = nil end
+    if flyBodyGyro then flyBodyGyro:Destroy(); flyBodyGyro = nil end
     local hum = getHumanoid()
     if hum then hum.PlatformStand = false end
     if flyControls then flyControls.Visible = false end
@@ -933,19 +936,30 @@ local function startFly()
     if not hrp or not hum then return end
 
     hum.PlatformStand = true
+
     flyBodyVel = Instance.new("BodyVelocity")
     flyBodyVel.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
     flyBodyVel.Velocity = Vector3.new(0, 0, 0)
     flyBodyVel.P = 1250
     flyBodyVel.Parent = hrp
 
-    if UserInputService.TouchEnabled and flyControls then flyControls.Visible = true end
+    flyBodyGyro = Instance.new("BodyGyro")
+    flyBodyGyro.MaxTorque = Vector3.new(math.huge, math.huge, math.huge)
+    flyBodyGyro.P = 3000
+    flyBodyGyro.D = 500
+    flyBodyGyro.CFrame = hrp.CFrame
+    flyBodyGyro.Parent = hrp
+
+    if UserInputService.TouchEnabled and flyControls then
+        flyControls.Visible = true
+    end
 
     local camera = workspace.CurrentCamera
 
     flyConnection = RunService.RenderStepped:Connect(function()
         if not state.flyEnabled then return end
         if not flyBodyVel or not flyBodyVel.Parent then return end
+        if not flyBodyGyro or not flyBodyGyro.Parent then return end
         if not camera then camera = workspace.CurrentCamera end
         if not hrp.Parent then return end
 
@@ -953,9 +967,11 @@ local function startFly()
         local lookVec  = camCF.LookVector
         local rightVec = camCF.RightVector
 
-        local pos = hrp.Position
-        hrp.CFrame = CFrame.new(pos, pos + lookVec)
+        -- 🎯 Smooth Body Rotation via BodyGyro
+        local gyroTarget = CFrame.new(hrp.Position, hrp.Position + lookVec)
+        flyBodyGyro.CFrame = flyBodyGyro.CFrame:Lerp(gyroTarget, 0.15)
 
+        -- 🏃 Bewegung
         local moveVec = Vector3.new(0, 0, 0)
         local usingKeys = false
 
@@ -1747,7 +1763,6 @@ deselectAllBtn.MouseButton1Click:Connect(function()
     rebuildPlayerList()
 end)
 
--- ─── Start Fling ───
 local function startFling()
     if flingState.active then return end
 
@@ -1792,12 +1807,10 @@ local function startFling()
     updateStatusLabel()
 end
 
--- ─── Stop Fling (mit 1s Anchor-Phase) ───
 local function stopFling()
     if not flingState.active then return end
     flingState.active = false
 
-    -- 1. Angular Velocity killen
     if flingState.angularVel then
         flingState.angularVel:Destroy()
         flingState.angularVel = nil
@@ -1807,30 +1820,22 @@ local function stopFling()
     local myChar = LocalPlayer.Character
 
     if myHrp then
-        -- 2. Velocity resetten
         myHrp.Velocity = Vector3.new(0, 0, 0)
         myHrp.RotVelocity = Vector3.new(0, 0, 0)
-
-        -- 3. HRP ankern → Physik klingt ab
         myHrp.Anchored = true
 
-        -- 4. 1 Sekunde warten bis Netzwerk-Physik sich beruhigt hat
         task.wait(1)
 
-        -- 5. Zurück zur Original-Position
         if flingState.originalCF then
             myHrp.CFrame = flingState.originalCF
         end
         myHrp.Velocity = Vector3.new(0, 0, 0)
 
-        -- 6. Kurz weiter warten
         task.wait(0.15)
 
-        -- 7. Anker lösen
         myHrp.Anchored = false
     end
 
-    -- 8. Kollision wiederherstellen
     if myChar then
         for _, part in ipairs(myChar:GetDescendants()) do
             if part:IsA("BasePart") then
@@ -1849,13 +1854,11 @@ stopFlingBtn.MouseButton1Click:Connect(function()
     task.spawn(stopFling)
 end)
 
--- ─── Fling Loop (3.8s switch) ───
 RunService.Heartbeat:Connect(function()
     if not flingState.active then return end
     local targets = flingState.targets
     if #targets == 0 then stopFling(); return end
 
-    -- Multi-target: alle 3.8 Sekunden wechseln
     if #targets > 1 then
         local now = tick()
         if now - flingState.lastSwitch > 3.8 then
@@ -1889,7 +1892,6 @@ RunService.Heartbeat:Connect(function()
     )
 end)
 
--- ─── Follow Loop ───
 RunService.Heartbeat:Connect(function()
     if not followTarget then return end
     if flingState.active then return end
