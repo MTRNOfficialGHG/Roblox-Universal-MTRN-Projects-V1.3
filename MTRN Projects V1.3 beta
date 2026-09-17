@@ -1116,7 +1116,6 @@ local tpKeybind = createKeybind(coordBtnRow, Enum.KeyCode.T, function()
         if hrp then hrp.CFrame = CFrame.new(tonumber(x), tonumber(y), tonumber(z)) end
     end
 end)
-tpKeybind.Instance.Position = UDim2.new(0, 187, 0, 26 * 0 + 0)
 tpKeybind.Instance.Position = UDim2.new(0, 187, 0, 0)
 tpKeybind.Instance.Size = UDim2.new(0, 42, 0, 26)
 tpKeybind.Instance.Parent = coordBtnRow
@@ -1419,6 +1418,7 @@ local flingContainer = pages["Fling"].container
 
 local topRow = Instance.new("Frame")
 topRow.Size = UDim2.new(1, 0, 0, 30)
+topRow.Position = UDim2.new(0, 0, 0, 0)
 topRow.BackgroundTransparency = 1
 topRow.Parent = flingContainer
 
@@ -1927,362 +1927,361 @@ visualsScrollPadding.PaddingRight = UDim.new(0, 6)
 visualsScrollPadding.PaddingBottom = UDim.new(0, 8)
 visualsScrollPadding.Parent = visualsScroll
 
-local visualsState = {
-    infZoom = false,
+local visState = {
+    infinityZoom = false,
     freecam = false,
     fullbright = false,
     xray = false,
-    coolkidd = false,
+    c00lkidd = false,
     nofog = false,
     customFov = false,
     fovValue = 70,
-}
 
--- Original Werte merken
-local origLighting = {
-    Brightness      = Lighting.Brightness,
-    Ambient         = Lighting.Ambient,
-    OutdoorAmbient  = Lighting.OutdoorAmbient,
-    ClockTime       = Lighting.ClockTime,
-    GlobalShadows   = Lighting.GlobalShadows,
-    FogEnd          = Lighting.FogEnd,
-    FogStart        = Lighting.FogStart,
-    FogColor        = Lighting.FogColor,
-}
-local origFov = workspace.CurrentCamera and workspace.CurrentCamera.FieldOfView or 70
-local xrayCache = {}
+    origMaxZoom = LocalPlayer.CameraMaxZoomDistance,
+    origMinZoom = LocalPlayer.CameraMinZoomDistance,
+    origAmbient = Lighting.Ambient,
+    origOutdoorAmbient = Lighting.OutdoorAmbient,
+    origBrightness = Lighting.Brightness,
+    origClockTime = Lighting.ClockTime,
+    origGlobalShadows = Lighting.GlobalShadows,
+    origFogStart = Lighting.FogStart,
+    origFogEnd = Lighting.FogEnd,
+    origFov = workspace.CurrentCamera and workspace.CurrentCamera.FieldOfView or 70,
 
--- ─── Infinity Zoom ───
-local infZoomConn
-local function enableInfZoom()
-    if infZoomConn then return end
-    infZoomConn = RunService.RenderStepped:Connect(function()
-        local cam = workspace.CurrentCamera
-        if cam then cam.FieldOfView = 1 end
-    end)
-end
-local function disableInfZoom()
-    if infZoomConn then infZoomConn:Disconnect(); infZoomConn = nil end
-    local cam = workspace.CurrentCamera
-    if cam then cam.FieldOfView = origFov end
-end
+    xrayCache = {},
+    textureCache = {},
+}
 
 createFeature(visualsScroll, {
     Label = "Infinity Zoom",
     Toggle = true,
     OnToggle = function(on)
-        visualsState.infZoom = on
-        if on then enableInfZoom() else disableInfZoom() end
+        visState.infinityZoom = on
+        if on then
+            LocalPlayer.CameraMaxZoomDistance = math.huge
+            LocalPlayer.CameraMinZoomDistance = 0.5
+        else
+            LocalPlayer.CameraMaxZoomDistance = visState.origMaxZoom
+            LocalPlayer.CameraMinZoomDistance = visState.origMinZoom
+        end
     end,
 }).Frame.LayoutOrder = 1
 
--- ─── Freecam (mit Pfeiltasten + Mobile Buttons) ───
-local freecam = {
-    active = false,
-    cam = nil,
-    pos = Vector3.zero,
-    rot = CFrame.new(),
-    conn = nil,
-    controls = nil,
-}
+local freecamButtons = Instance.new("Frame")
+freecamButtons.Size = UDim2.new(0, 130, 0, 130)
+freecamButtons.Position = UDim2.new(0, 20, 0.5, -65)
+freecamButtons.BackgroundTransparency = 1
+freecamButtons.Visible = false
+freecamButtons.Parent = ScreenGui
 
-local function stopFreecam()
-    if freecam.conn then freecam.conn:Disconnect(); freecam.conn = nil end
-    if freecam.controls then freecam.controls:Destroy(); freecam.controls = nil end
+local freeBtnState = { up = false, down = false, left = false, right = false }
 
-    local cam = workspace.CurrentCamera
-    local myHum = LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
-    if cam and myHum then
-        cam.CameraSubject = myHum
-        cam.CameraType = Enum.CameraType.Custom
-    end
-    freecam.active = false
+local function makeFreeBtn(text, pos, stateKey)
+    local b = Instance.new("TextButton")
+    b.Size = UDim2.new(0, 38, 0, 38)
+    b.Position = pos
+    b.BackgroundColor3 = Color3.fromRGB(35, 40, 55)
+    b.BackgroundTransparency = 0.2
+    b.BorderSizePixel = 0
+    b.Text = text
+    b.TextColor3 = Color3.fromRGB(255, 255, 255)
+    b.Font = Enum.Font.GothamBold
+    b.TextSize = 18
+    b.Parent = freecamButtons
+    Instance.new("UICorner", b).CornerRadius = UDim.new(0, 8)
+    b.InputBegan:Connect(function(i)
+        if i.UserInputType == Enum.UserInputType.Touch or i.UserInputType == Enum.UserInputType.MouseButton1 then
+            freeBtnState[stateKey] = true
+        end
+    end)
+    b.InputEnded:Connect(function(i)
+        if i.UserInputType == Enum.UserInputType.Touch or i.UserInputType == Enum.UserInputType.MouseButton1 then
+            freeBtnState[stateKey] = false
+        end
+    end)
+    return b
 end
 
-local function startFreecam()
-    stopFreecam()
+makeFreeBtn("▲", UDim2.new(0, 46, 0, 0), "up")
+makeFreeBtn("▼", UDim2.new(0, 46, 0, 92), "down")
+makeFreeBtn("◀", UDim2.new(0, 0, 0, 46), "left")
+makeFreeBtn("▶", UDim2.new(0, 92, 0, 46), "right")
 
+local freecamData = {
+    camType = nil,
+    camSubject = nil,
+    speed = 60,
+}
+
+local function startFreecam()
     local cam = workspace.CurrentCamera
     if not cam then return end
-
-    freecam.active = true
-    freecam.pos = cam.CFrame.Position
-    freecam.rot = cam.CFrame
-
+    freecamData.camType = cam.CameraType
+    freecamData.camSubject = cam.CameraSubject
     cam.CameraType = Enum.CameraType.Scriptable
+    UserInputService.MouseBehavior = Enum.MouseBehavior.LockCenter
+    UserInputService.MouseIconEnabled = false
+    freecamButtons.Visible = true
+end
 
-    -- Mobile Buttons
-    local controls = Instance.new("Frame")
-    controls.Size = UDim2.new(0, 56, 0, 176)
-    controls.Position = UDim2.new(1, -76, 0.5, -88)
-    controls.BackgroundTransparency = 1
-    controls.Parent = ScreenGui
-    freecam.controls = controls
-
-    local cLayout = Instance.new("UIListLayout")
-    cLayout.Padding = UDim.new(0, 6)
-    cLayout.Parent = controls
-
-    local function makeBtn(text, order)
-        local b = Instance.new("TextButton")
-        b.Size = UDim2.new(1, 0, 0, 40)
-        b.LayoutOrder = order
-        b.BackgroundColor3 = Color3.fromRGB(35, 40, 55)
-        b.BackgroundTransparency = 0.2
-        b.BorderSizePixel = 0
-        b.Text = text
-        b.TextColor3 = Color3.fromRGB(255, 255, 255)
-        b.Font = Enum.Font.GothamBold
-        b.TextSize = 18
-        b.Parent = controls
-        Instance.new("UICorner", b).CornerRadius = UDim.new(0, 8)
-        b:SetAttribute("Held", false)
-        b.InputBegan:Connect(function(i)
-            if i.UserInputType == Enum.UserInputType.Touch or i.UserInputType == Enum.UserInputType.MouseButton1 then
-                b:SetAttribute("Held", true)
-            end
-        end)
-        b.InputEnded:Connect(function(i)
-            if i.UserInputType == Enum.UserInputType.Touch or i.UserInputType == Enum.UserInputType.MouseButton1 then
-                b:SetAttribute("Held", false)
-            end
-        end)
-        return b
-    end
-
-    local fwdBtn  = makeBtn("▲", 1)
-    local backBtn = makeBtn("▼", 2)
-    local leftBtn = makeBtn("◀", 3)
-    local rightBtn = makeBtn("▶", 4)
-
-    local SPEED = 60
-
-    freecam.conn = RunService.RenderStepped:Connect(function(dt)
-        if not freecam.active then return end
-        local cam2 = workspace.CurrentCamera
-        if not cam2 then return end
-
-        -- Rotation von Kamera übernehmen (Maus-Steuerung bleibt aktiv)
-        freecam.rot = cam2.CFrame
-
-        local moveVec = Vector3.zero
-        local lookVec = cam2.CFrame.LookVector
-        local rightVec = cam2.CFrame.RightVector
-
-        -- PC: Pfeiltasten
-        if UserInputService:IsKeyDown(Enum.KeyCode.Up)    then moveVec = moveVec + lookVec end
-        if UserInputService:IsKeyDown(Enum.KeyCode.Down)  then moveVec = moveVec - lookVec end
-        if UserInputService:IsKeyDown(Enum.KeyCode.Left)  then moveVec = moveVec - rightVec end
-        if UserInputService:IsKeyDown(Enum.KeyCode.Right) then moveVec = moveVec + rightVec end
-
-        -- Mobile Buttons
-        if fwdBtn:GetAttribute("Held")   then moveVec = moveVec + lookVec end
-        if backBtn:GetAttribute("Held")  then moveVec = moveVec - lookVec end
-        if leftBtn:GetAttribute("Held")  then moveVec = moveVec - rightVec end
-        if rightBtn:GetAttribute("Held") then moveVec = moveVec + rightVec end
-
-        if moveVec.Magnitude > 0 then
-            freecam.pos = freecam.pos + moveVec.Unit * SPEED * dt
-        end
-
-        cam2.CFrame = CFrame.new(freecam.pos) * (freecam.rot - freecam.rot.Position)
-    end)
+local function stopFreecam()
+    local cam = workspace.CurrentCamera
+    if not cam then return end
+    if freecamData.camType then cam.CameraType = freecamData.camType end
+    if freecamData.camSubject then cam.CameraSubject = freecamData.camSubject end
+    UserInputService.MouseBehavior = Enum.MouseBehavior.Default
+    UserInputService.MouseIconEnabled = true
+    freecamButtons.Visible = false
 end
 
 createFeature(visualsScroll, {
     Label = "Freecam",
+    Keybind = { Default = Enum.KeyCode.C },
     Toggle = true,
     OnToggle = function(on)
-        visualsState.freecam = on
+        visState.freecam = on
         if on then startFreecam() else stopFreecam() end
     end,
 }).Frame.LayoutOrder = 2
 
--- ─── Fullbright ───
-local function enableFullbright()
-    Lighting.Brightness = 3
-    Lighting.Ambient = Color3.fromRGB(200, 200, 200)
-    Lighting.OutdoorAmbient = Color3.fromRGB(200, 200, 200)
-    Lighting.ClockTime = 12
-    Lighting.GlobalShadows = false
-end
+RunService.RenderStepped:Connect(function(dt)
+    if not visState.freecam then return end
+    local cam = workspace.CurrentCamera
+    if not cam or cam.CameraType ~= Enum.CameraType.Scriptable then return end
 
-local function disableFullbright()
-    Lighting.Brightness = origLighting.Brightness
-    Lighting.Ambient = origLighting.Ambient
-    Lighting.OutdoorAmbient = origLighting.OutdoorAmbient
-    Lighting.ClockTime = origLighting.ClockTime
-    Lighting.GlobalShadows = origLighting.GlobalShadows
-end
+    local look = cam.CFrame.LookVector
+    local right = cam.CFrame.RightVector
+
+    local move = Vector3.zero
+    if UserInputService:IsKeyDown(Enum.KeyCode.Up)    then move = move + look end
+    if UserInputService:IsKeyDown(Enum.KeyCode.Down)  then move = move - look end
+    if UserInputService:IsKeyDown(Enum.KeyCode.Right) then move = move + right end
+    if UserInputService:IsKeyDown(Enum.KeyCode.Left)  then move = move - right end
+    if UserInputService:IsKeyDown(Enum.KeyCode.Space) then move = move + Vector3.yAxis end
+    if UserInputService:IsKeyDown(Enum.KeyCode.LeftShift) then move = move - Vector3.yAxis end
+
+    if freeBtnState.up    then move = move + look end
+    if freeBtnState.down  then move = move - look end
+    if freeBtnState.right then move = move + right end
+    if freeBtnState.left  then move = move - right end
+
+    if move.Magnitude > 0 then
+        cam.CFrame = cam.CFrame + move.Unit * freecamData.speed * dt
+    end
+end)
+
+UserInputService.InputChanged:Connect(function(input)
+    if not visState.freecam then return end
+    if input.UserInputType ~= Enum.UserInputType.MouseMovement then return end
+    local cam = workspace.CurrentCamera
+    if not cam then return end
+    local sens = 0.004
+    cam.CFrame = cam.CFrame
+        * CFrame.Angles(0, -input.Delta.X * sens, 0)
+        * CFrame.Angles(-input.Delta.Y * sens, 0, 0)
+end)
 
 createFeature(visualsScroll, {
     Label = "Fullbright",
     Toggle = true,
     OnToggle = function(on)
-        visualsState.fullbright = on
-        if on then enableFullbright() else disableFullbright() end
+        visState.fullbright = on
+        if on then
+            Lighting.Ambient = Color3.fromRGB(178, 178, 178)
+            Lighting.OutdoorAmbient = Color3.fromRGB(178, 178, 178)
+            Lighting.Brightness = 2
+            Lighting.ClockTime = 12
+            Lighting.GlobalShadows = false
+        else
+            Lighting.Ambient = visState.origAmbient
+            Lighting.OutdoorAmbient = visState.origOutdoorAmbient
+            Lighting.Brightness = visState.origBrightness
+            Lighting.ClockTime = visState.origClockTime
+            Lighting.GlobalShadows = visState.origGlobalShadows
+        end
     end,
 }).Frame.LayoutOrder = 3
 
--- ─── X-Ray ───
-local function enableXray()
-    for _, v in ipairs(workspace:GetDescendants()) do
-        if v:IsA("BasePart") and not v:IsDescendantOf(LocalPlayer.Character or workspace) then
-            if v.Transparency < 1 then
-                xrayCache[v] = v.Transparency
-                v.Transparency = 0.85
-            end
+local function isCharPart(obj)
+    local p = obj.Parent
+    while p do
+        if p:IsA("Model") and Players:GetPlayerFromCharacter(p) then return true end
+        p = p.Parent
+    end
+    return false
+end
+
+local function applyXrayToPart(obj)
+    if obj:IsA("BasePart") and not isCharPart(obj) then
+        if not visState.xrayCache[obj] then
+            visState.xrayCache[obj] = obj.LocalTransparencyModifier
         end
+        obj.LocalTransparencyModifier = 1
     end
 end
 
-local function disableXray()
-    for part, t in pairs(xrayCache) do
-        if part and part.Parent then
-            part.Transparency = t
+local function applyXray()
+    visState.xrayCache = {}
+    for _, obj in ipairs(workspace:GetDescendants()) do
+        applyXrayToPart(obj)
+    end
+end
+
+local function removeXray()
+    for obj, t in pairs(visState.xrayCache) do
+        if obj and obj.Parent then
+            obj.LocalTransparencyModifier = t
         end
     end
-    xrayCache = {}
+    visState.xrayCache = {}
 end
 
 createFeature(visualsScroll, {
     Label = "X-Ray",
     Toggle = true,
     OnToggle = function(on)
-        visualsState.xray = on
-        if on then enableXray() else disableXray() end
+        visState.xray = on
+        if on then applyXray() else removeXray() end
     end,
 }).Frame.LayoutOrder = 4
 
--- ─── c00lkidd Mode ───
-local COOLKIDD_TEXTURE = "rbxassetid://8408806737"
-local coolkiddCache = {}
+workspace.DescendantAdded:Connect(function(obj)
+    if visState.xray then applyXrayToPart(obj) end
+end)
 
-local function enableCoolkidd()
-    for _, v in ipairs(workspace:GetDescendants()) do
-        if v:IsA("BasePart") or v:IsA("MeshPart") or v:IsA("Decal") or v:IsA("Texture") then
-            if v:IsA("Decal") or v:IsA("Texture") then
-                if v.Texture ~= COOLKIDD_TEXTURE then
-                    coolkiddCache[v] = v.Texture
-                    v.Texture = COOLKIDD_TEXTURE
-                end
-            elseif v:IsA("BasePart") or v:IsA("MeshPart") then
-                if v.TextureID and v.TextureID ~= "" and v.TextureID ~= COOLKIDD_TEXTURE then
-                    pcall(function() v.TextureID = COOLKIDD_TEXTURE end)
-                end
-                for _, child in ipairs(v:GetChildren()) do
-                    if child:IsA("Decal") or child:IsA("Texture") then
-                        coolkiddCache[child] = child.Texture
-                        child.Texture = COOLKIDD_TEXTURE
-                    end
-                end
+local C00LKIDD_TEXTURE = "rbxassetid://8408806737"
+
+local function applyC00lkidd()
+    visState.textureCache = {}
+    for _, obj in ipairs(workspace:GetDescendants()) do
+        pcall(function()
+            if obj:IsA("Decal") or obj:IsA("Texture") then
+                visState.textureCache[obj] = obj.Texture
+                obj.Texture = C00LKIDD_TEXTURE
+            elseif obj:IsA("MeshPart") then
+                visState.textureCache[obj] = obj.TextureID
+                obj.TextureID = C00LKIDD_TEXTURE
+            elseif obj:IsA("SpecialMesh") then
+                visState.textureCache[obj] = obj.TextureId
+                obj.TextureId = C00LKIDD_TEXTURE
             end
-        end
+        end)
     end
 end
 
-local function disableCoolkidd()
-    for obj, tex in pairs(coolkiddCache) do
+local function removeC00lkidd()
+    for obj, t in pairs(visState.textureCache) do
         if obj and obj.Parent then
-            pcall(function() obj.Texture = tex end)
+            pcall(function()
+                if obj:IsA("Decal") or obj:IsA("Texture") then
+                    obj.Texture = t
+                elseif obj:IsA("MeshPart") then
+                    obj.TextureID = t
+                elseif obj:IsA("SpecialMesh") then
+                    obj.TextureId = t
+                end
+            end)
         end
     end
-    coolkiddCache = {}
+    visState.textureCache = {}
 end
 
 createFeature(visualsScroll, {
     Label = "c00lkidd Mode",
     Toggle = true,
     OnToggle = function(on)
-        visualsState.coolkidd = on
-        if on then enableCoolkidd() else disableCoolkidd() end
+        visState.c00lkidd = on
+        if on then applyC00lkidd() else removeC00lkidd() end
     end,
 }).Frame.LayoutOrder = 5
 
--- ─── Anti Lag (Reload Textures & Chunks) ───
-local function antiLag()
-    -- Alle Texturen / Decals neu laden
-    for _, v in ipairs(workspace:GetDescendants()) do
-        if v:IsA("Decal") or v:IsA("Texture") then
-            local old = v.Texture
-            v.Texture = ""
-            task.wait()
-            v.Texture = old
-        elseif v:IsA("MeshPart") then
-            local old = v.TextureID
-            v.TextureID = ""
-            task.wait()
-            v.TextureID = old
-        end
-    end
-    -- Chunks neu rendern
-    if workspace.CurrentCamera then
-        workspace.CurrentCamera.CFrame = workspace.CurrentCamera.CFrame
-    end
-end
+local antiLagRow = Instance.new("Frame")
+antiLagRow.Size = UDim2.new(1, 0, 0, 44)
+antiLagRow.BackgroundTransparency = 1
+antiLagRow.LayoutOrder = 6
+antiLagRow.Parent = visualsScroll
+
+local antiLagLabel = Instance.new("TextLabel")
+antiLagLabel.Size = UDim2.new(1, 0, 0, 18)
+antiLagLabel.BackgroundTransparency = 1
+antiLagLabel.Text = "Anti Lag"
+antiLagLabel.Font = Enum.Font.GothamMedium
+antiLagLabel.TextSize = 13
+antiLagLabel.TextColor3 = COLORS.Text
+antiLagLabel.TextXAlignment = Enum.TextXAlignment.Left
+antiLagLabel.Parent = antiLagRow
 
 local antiLagBtn = Instance.new("TextButton")
-antiLagBtn.Size = UDim2.new(1, 0, 0, 34)
-antiLagBtn.BackgroundColor3 = COLORS.Row
+antiLagBtn.Size = UDim2.new(1, 0, 0, 22)
+antiLagBtn.Position = UDim2.new(0, 0, 0, 20)
+antiLagBtn.BackgroundColor3 = COLORS.Accent
 antiLagBtn.BorderSizePixel = 0
 antiLagBtn.Text = "Reload all textures and chunks"
-antiLagBtn.Font = Enum.Font.GothamMedium
-antiLagBtn.TextSize = 12
-antiLagBtn.TextColor3 = COLORS.Text
+antiLagBtn.Font = Enum.Font.GothamBold
+antiLagBtn.TextSize = 11
+antiLagBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
 antiLagBtn.AutoButtonColor = false
-antiLagBtn.LayoutOrder = 6
-antiLagBtn.Parent = visualsScroll
+antiLagBtn.Parent = antiLagRow
 Instance.new("UICorner", antiLagBtn).CornerRadius = UDim.new(0, 6)
 
 antiLagBtn.MouseButton1Click:Connect(function()
-    antiLagBtn.Text = "Reloading..."
-    task.spawn(function()
-        antiLag()
-        antiLagBtn.Text = "Done!"
-        task.wait(1)
+    if visState.c00lkidd then
+        removeC00lkidd()
+        visState.c00lkidd = false
+    end
+    local count = 0
+    for _, obj in ipairs(workspace:GetDescendants()) do
+        pcall(function()
+            if obj:IsA("Decal") or obj:IsA("Texture") then
+                local t = obj.Texture
+                obj.Texture = ""
+                task.wait()
+                obj.Texture = t
+                count += 1
+            end
+        end)
+    end
+    antiLagBtn.Text = "✓ Reloaded (" .. count .. ")!"
+    task.delay(1.5, function()
         antiLagBtn.Text = "Reload all textures and chunks"
     end)
 end)
 
--- ─── No Fog ───
-local function enableNoFog()
-    Lighting.FogEnd = 100000
-    Lighting.FogStart = 100000
-end
-
-local function disableNoFog()
-    Lighting.FogEnd = origLighting.FogEnd
-    Lighting.FogStart = origLighting.FogStart
-    Lighting.FogColor = origLighting.FogColor
-end
-
 createFeature(visualsScroll, {
-    Label = "No Fog",
+    Label = "No FOG",
     Toggle = true,
     OnToggle = function(on)
-        visualsState.nofog = on
-        if on then enableNoFog() else disableNoFog() end
+        visState.nofog = on
+        if on then
+            Lighting.FogStart = math.huge
+            Lighting.FogEnd = math.huge
+        else
+            Lighting.FogStart = visState.origFogStart
+            Lighting.FogEnd = visState.origFogEnd
+        end
     end,
 }).Frame.LayoutOrder = 7
-
--- ─── Custom FOV ───
-local function applyFov(v)
-    local cam = workspace.CurrentCamera
-    if cam then cam.FieldOfView = v end
-end
 
 createFeature(visualsScroll, {
     Label = "Custom FOV",
     Toggle = true,
     Slider = { 30, 150, 70 },
     OnToggle = function(on)
-        visualsState.customFov = on
-        if on then applyFov(visualsState.fovValue)
-        else applyFov(origFov) end
+        visState.customFov = on
+        local cam = workspace.CurrentCamera
+        if not cam then return end
+        if on then
+            cam.FieldOfView = visState.fovValue
+        else
+            cam.FieldOfView = visState.origFov
+        end
     end,
     OnSlider = function(v)
-        visualsState.fovValue = v
-        if visualsState.customFov then applyFov(v) end
+        visState.fovValue = v
+        if visState.customFov then
+            local cam = workspace.CurrentCamera
+            if cam then cam.FieldOfView = v end
+        end
     end,
 }).Frame.LayoutOrder = 8
 
@@ -2335,9 +2334,6 @@ YesBtn.MouseButton1Click:Connect(function()
     task.spawn(stopFling)
     stopView()
     stopFreecam()
-    disableXray()
-    disableCoolkidd()
-    if visualsState.infZoom then disableInfZoom() end
     ScreenGui:Destroy()
 end)
 NoBtn.MouseButton1Click:Connect(function() ConfirmFrame.Visible = false end)
