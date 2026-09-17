@@ -1,6 +1,6 @@
 --[[
     MTRN Projects V1.3
-    Complete - Info + Player + ESP + Fling + Visuals
+    Complete - Info + Player + ESP + Fling + Visuals (mit allen Fixes)
 --]]
 
 local Players          = game:GetService("Players")
@@ -478,7 +478,8 @@ end
 
 local function createFeature(parent, opts)
     local hasSlider = opts.Slider ~= nil
-    local ROW_H = 32
+    local hasSubLabel = opts.SubLabel ~= nil
+    local ROW_H = hasSubLabel and 46 or 32
     local SLIDER_H = hasSlider and 22 or 0
     local GAP = hasSlider and 6 or 0
     local totalH = ROW_H + SLIDER_H + GAP
@@ -489,7 +490,8 @@ local function createFeature(parent, opts)
     feature.Parent = parent
 
     local label = Instance.new("TextLabel")
-    label.Size = UDim2.new(1, -150, 0, ROW_H)
+    label.Size = UDim2.new(1, -150, 0, 18)
+    label.Position = UDim2.new(0, 0, 0, 0)
     label.BackgroundTransparency = 1
     label.Text = opts.Label
     label.Font = Enum.Font.GothamMedium
@@ -498,8 +500,21 @@ local function createFeature(parent, opts)
     label.TextXAlignment = Enum.TextXAlignment.Left
     label.Parent = feature
 
+    if hasSubLabel then
+        local sub = Instance.new("TextLabel")
+        sub.Size = UDim2.new(1, -150, 0, 14)
+        sub.Position = UDim2.new(0, 0, 0, 20)
+        sub.BackgroundTransparency = 1
+        sub.Text = opts.SubLabel
+        sub.Font = Enum.Font.Gotham
+        sub.TextSize = 10
+        sub.TextColor3 = COLORS.SubText
+        sub.TextXAlignment = Enum.TextXAlignment.Left
+        sub.Parent = feature
+    end
+
     local rightSide = Instance.new("Frame")
-    rightSide.Size = UDim2.new(0, 150, 0, ROW_H)
+    rightSide.Size = UDim2.new(0, 150, 0, 32)
     rightSide.Position = UDim2.new(1, 0, 0, 0)
     rightSide.AnchorPoint = Vector2.new(1, 0)
     rightSide.BackgroundTransparency = 1
@@ -1967,6 +1982,7 @@ createFeature(visualsScroll, {
     end,
 }).Frame.LayoutOrder = 1
 
+-- Freecam mobile buttons
 local freecamButtons = Instance.new("Frame")
 freecamButtons.Size = UDim2.new(0, 130, 0, 130)
 freecamButtons.Position = UDim2.new(0, 20, 0.5, -65)
@@ -2036,14 +2052,20 @@ end
 
 createFeature(visualsScroll, {
     Label = "Freecam",
+    SubLabel = "Use the arrow keys on the keyboard",
     Keybind = { Default = Enum.KeyCode.C },
     Toggle = true,
+    Slider = { 1, 1000, 60 },
     OnToggle = function(on)
         visState.freecam = on
         if on then startFreecam() else stopFreecam() end
     end,
+    OnSlider = function(v)
+        freecamData.speed = v
+    end,
 }).Frame.LayoutOrder = 2
 
+-- Freecam movement (arrow keys + mobile buttons)
 RunService.RenderStepped:Connect(function(dt)
     if not visState.freecam then return end
     local cam = workspace.CurrentCamera
@@ -2070,15 +2092,57 @@ RunService.RenderStepped:Connect(function(dt)
     end
 end)
 
-UserInputService.InputChanged:Connect(function(input)
+-- Freecam rotation: PC mouse (per-frame delta)
+RunService.RenderStepped:Connect(function()
     if not visState.freecam then return end
-    if input.UserInputType ~= Enum.UserInputType.MouseMovement then return end
+    if UserInputService.TouchEnabled then return end
     local cam = workspace.CurrentCamera
-    if not cam then return end
-    local sens = 0.004
+    if not cam or cam.CameraType ~= Enum.CameraType.Scriptable then return end
+
+    local delta = UserInputService:GetMouseDelta()
+    if delta.X == 0 and delta.Y == 0 then return end
+
+    local sens = 0.003
     cam.CFrame = cam.CFrame
-        * CFrame.Angles(0, -input.Delta.X * sens, 0)
-        * CFrame.Angles(-input.Delta.Y * sens, 0, 0)
+        * CFrame.Angles(0, -delta.X * sens, 0)
+        * CFrame.Angles(-delta.Y * sens, 0, 0)
+end)
+
+-- Freecam rotation: Mobile touch swipe
+local freeLookTouch = nil
+local lastTouchPos = nil
+
+UserInputService.TouchStarted:Connect(function(touch, gpe)
+    if not visState.freecam then return end
+    if gpe then return end
+    if not freeLookTouch then
+        freeLookTouch = touch
+        lastTouchPos = touch.Position
+    end
+end)
+
+UserInputService.TouchMoved:Connect(function(touch, gpe)
+    if not visState.freecam then return end
+    if touch ~= freeLookTouch then return end
+    if not lastTouchPos then return end
+
+    local delta = touch.Position - lastTouchPos
+    lastTouchPos = touch.Position
+
+    local cam = workspace.CurrentCamera
+    if not cam or cam.CameraType ~= Enum.CameraType.Scriptable then return end
+
+    local sens = 0.005
+    cam.CFrame = cam.CFrame
+        * CFrame.Angles(0, -delta.X * sens, 0)
+        * CFrame.Angles(-delta.Y * sens, 0, 0)
+end)
+
+UserInputService.TouchEnded:Connect(function(touch, gpe)
+    if touch == freeLookTouch then
+        freeLookTouch = nil
+        lastTouchPos = nil
+    end
 end)
 
 createFeature(visualsScroll, {
@@ -2149,23 +2213,39 @@ workspace.DescendantAdded:Connect(function(obj)
     if visState.xray then applyXrayToPart(obj) end
 end)
 
+-- c00lkidd Mode (überall + Auto-Apply)
 local C00LKIDD_TEXTURE = "rbxassetid://8408806737"
+
+local function applyTextureToObject(obj)
+    pcall(function()
+        if obj:IsA("Decal") or obj:IsA("Texture") then
+            if visState.textureCache[obj] == nil then
+                visState.textureCache[obj] = obj.Texture
+            end
+            obj.Texture = C00LKIDD_TEXTURE
+        elseif obj:IsA("MeshPart") then
+            if visState.textureCache[obj] == nil then
+                visState.textureCache[obj] = obj.TextureID
+            end
+            obj.TextureID = C00LKIDD_TEXTURE
+        elseif obj:IsA("SpecialMesh") then
+            if visState.textureCache[obj] == nil then
+                visState.textureCache[obj] = obj.TextureId
+            end
+            obj.TextureId = C00LKIDD_TEXTURE
+        elseif obj:IsA("SurfaceAppearance") then
+            if visState.textureCache[obj] == nil then
+                visState.textureCache[obj] = obj.ColorMap
+            end
+            obj.ColorMap = C00LKIDD_TEXTURE
+        end
+    end)
+end
 
 local function applyC00lkidd()
     visState.textureCache = {}
     for _, obj in ipairs(workspace:GetDescendants()) do
-        pcall(function()
-            if obj:IsA("Decal") or obj:IsA("Texture") then
-                visState.textureCache[obj] = obj.Texture
-                obj.Texture = C00LKIDD_TEXTURE
-            elseif obj:IsA("MeshPart") then
-                visState.textureCache[obj] = obj.TextureID
-                obj.TextureID = C00LKIDD_TEXTURE
-            elseif obj:IsA("SpecialMesh") then
-                visState.textureCache[obj] = obj.TextureId
-                obj.TextureId = C00LKIDD_TEXTURE
-            end
-        end)
+        applyTextureToObject(obj)
     end
 end
 
@@ -2179,6 +2259,8 @@ local function removeC00lkidd()
                     obj.TextureID = t
                 elseif obj:IsA("SpecialMesh") then
                     obj.TextureId = t
+                elseif obj:IsA("SurfaceAppearance") then
+                    obj.ColorMap = t
                 end
             end)
         end
@@ -2195,6 +2277,38 @@ createFeature(visualsScroll, {
     end,
 }).Frame.LayoutOrder = 5
 
+-- Auto-Apply c00lkidd auf neue Teile
+workspace.DescendantAdded:Connect(function(obj)
+    if visState.c00lkidd then
+        applyTextureToObject(obj)
+    end
+end)
+
+Players.PlayerAdded:Connect(function(plr)
+    plr.CharacterAdded:Connect(function(char)
+        if visState.c00lkidd then
+            task.wait(0.1)
+            for _, obj in ipairs(char:GetDescendants()) do
+                applyTextureToObject(obj)
+            end
+        end
+    end)
+end)
+
+for _, plr in ipairs(Players:GetPlayers()) do
+    pcall(function()
+        plr.CharacterAdded:Connect(function(char)
+            if visState.c00lkidd then
+                task.wait(0.1)
+                for _, obj in ipairs(char:GetDescendants()) do
+                    applyTextureToObject(obj)
+                end
+            end
+        end)
+    end)
+end
+
+-- Anti Lag
 local antiLagRow = Instance.new("Frame")
 antiLagRow.Size = UDim2.new(1, 0, 0, 44)
 antiLagRow.BackgroundTransparency = 1
