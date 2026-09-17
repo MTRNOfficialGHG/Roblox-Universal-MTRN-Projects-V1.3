@@ -1,6 +1,6 @@
 --[[
     MTRN Projects V1.3
-    Complete Script - Info + Player + ESP + Fling Tab
+    Complete - Info + Player + ESP + Fling Tab
 --]]
 
 local Players          = game:GetService("Players")
@@ -145,11 +145,8 @@ local MIN_SIZE    = UDim2.new(0.45, 0, 0, 40)
 
 local function toggleMinimize()
     isMinimized = not isMinimized
-    TweenService:Create(
-        Main,
-        TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
-        { Size = isMinimized and MIN_SIZE or NORMAL_SIZE }
-    ):Play()
+    TweenService:Create(Main, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
+        { Size = isMinimized and MIN_SIZE or NORMAL_SIZE }):Play()
 end
 
 MinimizeBtn.MouseButton1Click:Connect(toggleMinimize)
@@ -276,7 +273,7 @@ local function selectTab(name)
     end
 end
 
-local TAB_LIST = { "Info", "Player", "ESP", "Fling", "Misc" }
+local TAB_LIST = { "Info", "Player", "ESP", "Fling", "Misc", "Settings" }
 local BUILT_TABS = { Info = true, Player = true, ESP = true, Fling = true }
 
 for i, name in ipairs(TAB_LIST) do
@@ -310,7 +307,6 @@ local function createToggle(parent, defaultValue, callback)
     Instance.new("UICorner", knob).CornerRadius = UDim.new(1, 0)
 
     local state = defaultValue or false
-
     local function set(newState, silent)
         state = newState
         TweenService:Create(toggle, TweenInfo.new(0.2), {
@@ -321,14 +317,9 @@ local function createToggle(parent, defaultValue, callback)
         }):Play()
         if not silent and callback then callback(state) end
     end
-
     toggle.MouseButton1Click:Connect(function() set(not state) end)
 
-    return {
-        Instance = toggle,
-        Get = function() return state end,
-        Set = set,
-    }
+    return { Instance = toggle, Get = function() return state end, Set = set }
 end
 
 local function createSlider(parent, minV, maxV, defaultV, callback)
@@ -454,7 +445,6 @@ local function createKeybind(parent, defaultKey, callback)
     table.insert(keybindRegistry, entry)
 
     local function isCapturing() return capturingField == entry end
-
     btn.MouseButton1Click:Connect(function()
         if isCapturing() then
             capturingField = nil
@@ -482,11 +472,7 @@ local function createKeybind(parent, defaultKey, callback)
         capturingField = nil
     end)
 
-    return {
-        Instance = btn,
-        SetEnabled = function(v) entry.enabled = v end,
-        Get = function() return entry.key end,
-    }
+    return { Instance = btn, SetEnabled = function(v) entry.enabled = v end, Get = function() return entry.key end }
 end
 
 local function createFeature(parent, opts)
@@ -499,7 +485,6 @@ local function createFeature(parent, opts)
     local feature = Instance.new("Frame")
     feature.Size = UDim2.new(1, 0, 0, totalH)
     feature.BackgroundTransparency = 1
-    feature.ClipsDescendants = false
     feature.Parent = parent
 
     local label = Instance.new("TextLabel")
@@ -537,11 +522,8 @@ local function createFeature(parent, opts)
 
     if opts.Keybind then
         keybind = createKeybind(rightSide, opts.Keybind.Default, function()
-            if toggle then
-                toggle.Set(not toggle.Get())
-            elseif opts.OnKeybind then
-                opts.OnKeybind()
-            end
+            if toggle then toggle.Set(not toggle.Get())
+            elseif opts.OnKeybind then opts.OnKeybind() end
         end)
         keybind.Instance.LayoutOrder = 1
     end
@@ -558,55 +540,6 @@ local function createFeature(parent, opts)
     end
 
     return { Frame = feature, Toggle = toggle, Slider = slider, Keybind = keybind }
-end
-
-local function createCheckbox(parent, callback)
-    local cb = Instance.new("TextButton")
-    cb.Size = UDim2.new(0, 18, 0, 18)
-    cb.BackgroundColor3 = COLORS.Row
-    cb.BorderSizePixel = 0
-    cb.Text = ""
-    cb.AutoButtonColor = false
-    cb.Parent = parent
-    Instance.new("UICorner", cb).CornerRadius = UDim.new(0, 4)
-
-    local check = Instance.new("TextLabel")
-    check.Size = UDim2.new(1, 0, 1, 0)
-    check.BackgroundTransparency = 1
-    check.Text = "✓"
-    check.TextColor3 = COLORS.ToggleOn
-    check.Font = Enum.Font.GothamBold
-    check.TextSize = 14
-    check.Visible = false
-    check.Parent = cb
-
-    local state = false
-
-    local function set(v, silent)
-        state = v
-        check.Visible = v
-        cb.BackgroundColor3 = v and Color3.fromRGB(30, 60, 40) or COLORS.Row
-        if not silent and callback then callback(v) end
-    end
-
-    cb.MouseButton1Click:Connect(function() set(not state) end)
-
-    return {
-        Instance = cb,
-        Get = function() return state end,
-        Set = set,
-    }
-end
-
-local function getHumanoid()
-    local char = LocalPlayer.Character
-    if char then return char:FindFirstChildOfClass("Humanoid") end
-    return nil
-end
-local function getHRP()
-    local char = LocalPlayer.Character
-    if char then return char:FindFirstChild("HumanoidRootPart") end
-    return nil
 end
 
 -- ═══════════════════════════════════════════════════════════
@@ -825,11 +758,21 @@ scrollPadding.PaddingRight = UDim.new(0, 6)
 scrollPadding.PaddingBottom = UDim.new(0, 8)
 scrollPadding.Parent = scroll
 
+local function getHumanoid()
+    local char = LocalPlayer.Character
+    if char then return char:FindFirstChildOfClass("Humanoid") end
+    return nil
+end
+local function getHRP()
+    local char = LocalPlayer.Character
+    if char then return char:FindFirstChild("HumanoidRootPart") end
+    return nil
+end
+
 local state = {
     walkSpeedEnabled = false, walkSpeedValue = 16, originalWalkSpeed = 16,
     jumpPowerEnabled = false, jumpPowerValue = 50, originalJumpPower = 50,
-    infJumpEnabled = false,
-    noclipEnabled = false,
+    infJumpEnabled = false, noclipEnabled = false,
     flyEnabled = false, flySpeed = 100,
     gravityEnabled = false, gravityValue = 196, originalGravity = workspace.Gravity,
     spinbotEnabled = false, spinbotSpeed = 15,
@@ -856,61 +799,46 @@ LocalPlayer.CharacterAdded:Connect(function()
 end)
 
 createFeature(scroll, {
-    Label = "WalkSpeed",
-    Keybind = { Default = Enum.KeyCode.V },
-    Toggle = true,
+    Label = "WalkSpeed", Keybind = { Default = Enum.KeyCode.V }, Toggle = true,
     Slider = { 0, 1000, 16 },
     OnToggle = function(on)
         state.walkSpeedEnabled = on
         local hum = getHumanoid()
         if hum then
-            if on then
-                state.originalWalkSpeed = hum.WalkSpeed
-                hum.WalkSpeed = state.walkSpeedValue
-            else
-                hum.WalkSpeed = state.originalWalkSpeed
-            end
+            if on then state.originalWalkSpeed = hum.WalkSpeed; hum.WalkSpeed = state.walkSpeedValue
+            else hum.WalkSpeed = state.originalWalkSpeed end
         end
     end,
     OnSlider = function(v)
         state.walkSpeedValue = v
         if state.walkSpeedEnabled then
-            local hum = getHumanoid()
-            if hum then hum.WalkSpeed = v end
+            local hum = getHumanoid(); if hum then hum.WalkSpeed = v end
         end
     end,
 }).Frame.LayoutOrder = 1
 
 createFeature(scroll, {
-    Label = "JumpPower",
-    Keybind = { Default = Enum.KeyCode.J },
-    Toggle = true,
+    Label = "JumpPower", Keybind = { Default = Enum.KeyCode.J }, Toggle = true,
     Slider = { 0, 500, 50 },
     OnToggle = function(on)
         state.jumpPowerEnabled = on
         local hum = getHumanoid()
         if hum then
             hum.UseJumpPower = true
-            if on then
-                state.originalJumpPower = hum.JumpPower
-                hum.JumpPower = state.jumpPowerValue
-            else
-                hum.JumpPower = state.originalJumpPower
-            end
+            if on then state.originalJumpPower = hum.JumpPower; hum.JumpPower = state.jumpPowerValue
+            else hum.JumpPower = state.originalJumpPower end
         end
     end,
     OnSlider = function(v)
         state.jumpPowerValue = v
         if state.jumpPowerEnabled then
-            local hum = getHumanoid()
-            if hum then hum.JumpPower = v end
+            local hum = getHumanoid(); if hum then hum.JumpPower = v end
         end
     end,
 }).Frame.LayoutOrder = 2
 
 createFeature(scroll, {
-    Label = "Infinite Jump",
-    Toggle = true,
+    Label = "Infinite Jump", Toggle = true,
     OnToggle = function(on) state.infJumpEnabled = on end,
 }).Frame.LayoutOrder = 3
 
@@ -921,9 +849,7 @@ UserInputService.JumpRequest:Connect(function()
 end)
 
 createFeature(scroll, {
-    Label = "Noclip",
-    Keybind = { Default = Enum.KeyCode.N },
-    Toggle = true,
+    Label = "Noclip", Keybind = { Default = Enum.KeyCode.N }, Toggle = true,
     OnToggle = function(on)
         state.noclipEnabled = on
         if not on then
@@ -942,9 +868,7 @@ RunService.Stepped:Connect(function()
         local char = LocalPlayer.Character
         if char then
             for _, part in ipairs(char:GetDescendants()) do
-                if part:IsA("BasePart") and part.CanCollide then
-                    part.CanCollide = false
-                end
+                if part:IsA("BasePart") and part.CanCollide then part.CanCollide = false end
             end
         end
     end
@@ -1007,30 +931,39 @@ local function startFly()
     local hrp = getHRP()
     local hum = getHumanoid()
     if not hrp or not hum then return end
+
     hum.PlatformStand = true
     flyBodyVel = Instance.new("BodyVelocity")
     flyBodyVel.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
     flyBodyVel.Velocity = Vector3.new(0, 0, 0)
     flyBodyVel.P = 1250
     flyBodyVel.Parent = hrp
+
     if UserInputService.TouchEnabled and flyControls then flyControls.Visible = true end
+
     local camera = workspace.CurrentCamera
+
     flyConnection = RunService.RenderStepped:Connect(function()
         if not state.flyEnabled then return end
         if not flyBodyVel or not flyBodyVel.Parent then return end
         if not camera then camera = workspace.CurrentCamera end
         if not hrp.Parent then return end
+
         local camCF    = camera.CFrame
         local lookVec  = camCF.LookVector
         local rightVec = camCF.RightVector
+
         local pos = hrp.Position
         hrp.CFrame = CFrame.new(pos, pos + lookVec)
+
         local moveVec = Vector3.new(0, 0, 0)
         local usingKeys = false
+
         if UserInputService:IsKeyDown(Enum.KeyCode.W) then moveVec = moveVec + lookVec; usingKeys = true end
         if UserInputService:IsKeyDown(Enum.KeyCode.S) then moveVec = moveVec - lookVec; usingKeys = true end
         if UserInputService:IsKeyDown(Enum.KeyCode.D) then moveVec = moveVec + rightVec; usingKeys = true end
         if UserInputService:IsKeyDown(Enum.KeyCode.A) then moveVec = moveVec - rightVec; usingKeys = true end
+
         if not usingKeys then
             local md = hum.MoveDirection
             if md.Magnitude > 0 then
@@ -1043,10 +976,20 @@ local function startFly()
                 moveVec = moveVec + lookVec * fwdAmt + rightVec * rightAmt
             end
         end
-        if UserInputService:IsKeyDown(Enum.KeyCode.Space) then moveVec = moveVec + Vector3.new(0, 1, 0) end
-        if UserInputService:IsKeyDown(Enum.KeyCode.LeftShift) then moveVec = moveVec - Vector3.new(0, 1, 0) end
-        if flyUpBtn and flyUpBtn:GetAttribute("Held") then moveVec = moveVec + Vector3.new(0, 1, 0) end
-        if flyDownBtn and flyDownBtn:GetAttribute("Held") then moveVec = moveVec - Vector3.new(0, 1, 0) end
+
+        if UserInputService:IsKeyDown(Enum.KeyCode.Space) then
+            moveVec = moveVec + Vector3.new(0, 1, 0)
+        end
+        if UserInputService:IsKeyDown(Enum.KeyCode.LeftShift) then
+            moveVec = moveVec - Vector3.new(0, 1, 0)
+        end
+        if flyUpBtn and flyUpBtn:GetAttribute("Held") then
+            moveVec = moveVec + Vector3.new(0, 1, 0)
+        end
+        if flyDownBtn and flyDownBtn:GetAttribute("Held") then
+            moveVec = moveVec - Vector3.new(0, 1, 0)
+        end
+
         if moveVec.Magnitude > 0.01 then
             flyBodyVel.Velocity = moveVec.Unit * state.flySpeed
         else
@@ -1056,9 +999,7 @@ local function startFly()
 end
 
 createFeature(scroll, {
-    Label = "Fly",
-    Keybind = { Default = Enum.KeyCode.F },
-    Toggle = true,
+    Label = "Fly", Keybind = { Default = Enum.KeyCode.F }, Toggle = true,
     Slider = { 16, 5000, 100 },
     OnToggle = function(on)
         state.flyEnabled = on
@@ -1068,18 +1009,12 @@ createFeature(scroll, {
 }).Frame.LayoutOrder = 5
 
 createFeature(scroll, {
-    Label = "Gravity",
-    Keybind = { Default = Enum.KeyCode.G },
-    Toggle = true,
+    Label = "Gravity", Keybind = { Default = Enum.KeyCode.G }, Toggle = true,
     Slider = { 0, 500, 196 },
     OnToggle = function(on)
         state.gravityEnabled = on
-        if on then
-            state.originalGravity = workspace.Gravity
-            workspace.Gravity = state.gravityValue
-        else
-            workspace.Gravity = state.originalGravity
-        end
+        if on then state.originalGravity = workspace.Gravity; workspace.Gravity = state.gravityValue
+        else workspace.Gravity = state.originalGravity end
     end,
     OnSlider = function(v)
         state.gravityValue = v
@@ -1088,9 +1023,7 @@ createFeature(scroll, {
 }).Frame.LayoutOrder = 6
 
 createFeature(scroll, {
-    Label = "Spinbot",
-    Toggle = true,
-    Slider = { 1, 100, 15 },
+    Label = "Spinbot", Toggle = true, Slider = { 1, 100, 15 },
     OnToggle = function(on) state.spinbotEnabled = on end,
     OnSlider = function(v) state.spinbotSpeed = v end,
 }).Frame.LayoutOrder = 7
@@ -1098,9 +1031,7 @@ createFeature(scroll, {
 RunService.Heartbeat:Connect(function(dt)
     if not state.spinbotEnabled then return end
     local hrp = getHRP()
-    if hrp then
-        hrp.CFrame = hrp.CFrame * CFrame.Angles(0, math.rad(state.spinbotSpeed * dt * 60), 0)
-    end
+    if hrp then hrp.CFrame = hrp.CFrame * CFrame.Angles(0, math.rad(state.spinbotSpeed * dt * 60), 0) end
 end)
 
 local coordSection = Instance.new("Frame")
@@ -1217,18 +1148,17 @@ espScrollPadding.PaddingBottom = UDim.new(0, 8)
 espScrollPadding.Parent = espScroll
 
 local espState = {
-    chams = false, box = false, name = false,
-    distance = false, hpBar = false, skeleton = false,
-    teamCheck = false,
+    chams = false, box = false, name = false, distance = false,
+    hpBar = false, skeleton = false, teamCheck = false,
 }
 
-createFeature(espScroll, { Label = "Chams ESP",     Toggle = true, OnToggle = function(on) espState.chams = on end }).Frame.LayoutOrder = 1
-createFeature(espScroll, { Label = "Box ESP",       Toggle = true, OnToggle = function(on) espState.box = on end }).Frame.LayoutOrder = 2
-createFeature(espScroll, { Label = "Name ESP",      Toggle = true, OnToggle = function(on) espState.name = on end }).Frame.LayoutOrder = 3
-createFeature(espScroll, { Label = "Distance ESP",  Toggle = true, OnToggle = function(on) espState.distance = on end }).Frame.LayoutOrder = 4
-createFeature(espScroll, { Label = "HP Bar ESP",    Toggle = true, OnToggle = function(on) espState.hpBar = on end }).Frame.LayoutOrder = 5
-createFeature(espScroll, { Label = "Skeleton ESP",  Toggle = true, OnToggle = function(on) espState.skeleton = on end }).Frame.LayoutOrder = 6
-createFeature(espScroll, { Label = "Team Check ESP",Toggle = true, OnToggle = function(on) espState.teamCheck = on end }).Frame.LayoutOrder = 7
+createFeature(espScroll, { Label = "Chams ESP", Toggle = true, OnToggle = function(on) espState.chams = on end }).Frame.LayoutOrder = 1
+createFeature(espScroll, { Label = "Box ESP", Toggle = true, OnToggle = function(on) espState.box = on end }).Frame.LayoutOrder = 2
+createFeature(espScroll, { Label = "Name ESP", Toggle = true, OnToggle = function(on) espState.name = on end }).Frame.LayoutOrder = 3
+createFeature(espScroll, { Label = "Distance ESP", Toggle = true, OnToggle = function(on) espState.distance = on end }).Frame.LayoutOrder = 4
+createFeature(espScroll, { Label = "HP Bar ESP", Toggle = true, OnToggle = function(on) espState.hpBar = on end }).Frame.LayoutOrder = 5
+createFeature(espScroll, { Label = "Skeleton ESP", Toggle = true, OnToggle = function(on) espState.skeleton = on end }).Frame.LayoutOrder = 6
+createFeature(espScroll, { Label = "Team Check ESP", Toggle = true, OnToggle = function(on) espState.teamCheck = on end }).Frame.LayoutOrder = 7
 
 local HAS_DRAWING = (typeof(Drawing) == "table" and typeof(Drawing.new) == "function")
 
@@ -1244,6 +1174,7 @@ local SKELETON_R15 = {
     {"LowerTorso","LeftUpperLeg"},{"LeftUpperLeg","LeftLowerLeg"},{"LeftLowerLeg","LeftFoot"},
     {"LowerTorso","RightUpperLeg"},{"RightUpperLeg","RightLowerLeg"},{"RightLowerLeg","RightFoot"},
 }
+
 local SKELETON_R6 = {
     {"Head","Torso"},{"Torso","Left Arm"},{"Torso","Right Arm"},
     {"Torso","Left Leg"},{"Torso","Right Leg"},
@@ -1295,9 +1226,8 @@ local function removeEspData(plr)
     if not data then return end
     pcall(function()
         for _, v in pairs(data.skeleton) do v:Remove() end
-        data.box:Remove(); data.boxOutline:Remove()
-        data.name:Remove(); data.distance:Remove()
-        data.hpBarBg:Remove(); data.hpBarFill:Remove()
+        data.box:Remove(); data.boxOutline:Remove(); data.name:Remove()
+        data.distance:Remove(); data.hpBarBg:Remove(); data.hpBarFill:Remove()
         if data.highlight then data.highlight:Destroy() end
     end)
     espCache[plr] = nil
@@ -1329,19 +1259,19 @@ end
 local function updateEspFor(plr, data, camera)
     local char = plr.Character
     if not char then hideAllEsp(data); return end
+
     local hrp  = char:FindFirstChild("HumanoidRootPart")
     local hum  = char:FindFirstChildOfClass("Humanoid")
-    if not hrp or not hum or hum.Health <= 0 then hideAllEsp(data); return end
+    local head = char:FindFirstChild("Head")
+    if not hrp or not hum or not head or hum.Health <= 0 then hideAllEsp(data); return end
 
     local color = getEspColor(plr)
     local myChar = LocalPlayer.Character
     local myHrp = myChar and myChar:FindFirstChild("HumanoidRootPart")
     local dist = myHrp and math.floor((hrp.Position - myHrp.Position).Magnitude) or 0
 
-    local topWorld = hrp.Position + Vector3.new(0, 3, 0)
-    local botWorld = hrp.Position - Vector3.new(0, 3, 0)
-    local topScreen, topOn = camera:WorldToViewportPoint(topWorld)
-    local botScreen, botOn = camera:WorldToViewportPoint(botWorld)
+    local topScreen, topOn = camera:WorldToViewportPoint(hrp.Position + Vector3.new(0, 3, 0))
+    local botScreen, botOn = camera:WorldToViewportPoint(hrp.Position - Vector3.new(0, 3, 0))
     local onScreen = topOn and botOn and topScreen.Z > 0
 
     if espState.chams then
@@ -1349,8 +1279,7 @@ local function updateEspFor(plr, data, camera)
             if data.highlight then data.highlight:Destroy() end
             local hl = Instance.new("Highlight")
             hl.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
-            hl.FillTransparency = 0.55
-            hl.OutlineTransparency = 0
+            hl.FillTransparency = 0.55; hl.OutlineTransparency = 0
             hl.Parent = char
             data.highlight = hl
         end
@@ -1391,18 +1320,14 @@ local function updateEspFor(plr, data, camera)
         data.name.Text = plr.Name
         data.name.Color = color
         data.name.Visible = true
-    else
-        data.name.Visible = false
-    end
+    else data.name.Visible = false end
 
     if espState.distance then
         data.distance.Position = Vector2.new(topScreen.X, posY + height + 2)
         data.distance.Text = "[" .. dist .. " studs]"
         data.distance.Color = color
         data.distance.Visible = true
-    else
-        data.distance.Visible = false
-    end
+    else data.distance.Visible = false end
 
     if espState.hpBar then
         local barW = 4
@@ -1436,12 +1361,8 @@ local function updateEspFor(plr, data, camera)
                     line.To = Vector2.new(s2.X, s2.Y)
                     line.Color = color
                     line.Visible = true
-                else
-                    line.Visible = false
-                end
-            elseif line then
-                line.Visible = false
-            end
+                else line.Visible = false end
+            elseif line then line.Visible = false end
         end
     else
         for _, line in pairs(data.skeleton) do line.Visible = false end
@@ -1472,413 +1393,520 @@ if HAS_DRAWING then
             end
         end
     end)
+else
+    warn("[MTRN] Drawing API nicht verfügbar — ESP deaktiviert.")
 end
 
 -- ═══════════════════════════════════════════════════════════
--- 🚀 FLING TAB
+-- 🌀 FLING TAB
 -- ═══════════════════════════════════════════════════════════
 local flingContainer = pages["Fling"].container
 
-local flingState = {
-    active = false,
-    originalCFrame = nil,
-    targetList = {},
-    currentIndex = 1,
-    lastSwitchTime = 0,
-    followEnabled = false,
-    followTarget = nil,
-    offsetY = 0,
-    offsetXZ = 0,
-    viewing = false,
-    viewTarget = nil,
-    viewHighlight = nil,
-    selected = {},
-}
+-- ─── Top Buttons Row ───
+local topRow = Instance.new("Frame")
+topRow.Size = UDim2.new(1, 0, 0, 30)
+topRow.Position = UDim2.new(0, 0, 0, 0)
+topRow.BackgroundTransparency = 1
+topRow.Parent = flingContainer
 
--- ─── TOP BUTTONS ───
-local topBtnRow = Instance.new("Frame")
-topBtnRow.Size = UDim2.new(1, 0, 0, 28)
-topBtnRow.BackgroundTransparency = 1
-topBtnRow.Parent = flingContainer
+local topRowLayout = Instance.new("UIListLayout")
+topRowLayout.FillDirection = Enum.FillDirection.Horizontal
+topRowLayout.Padding = UDim.new(0, 6)
+topRowLayout.VerticalAlignment = Enum.VerticalAlignment.Center
+topRowLayout.Parent = topRow
 
-local topBtnLayout = Instance.new("UIListLayout")
-topBtnLayout.FillDirection = Enum.FillDirection.Horizontal
-topBtnLayout.Padding = UDim.new(0, 5)
-topBtnLayout.VerticalAlignment = Enum.VerticalAlignment.Center
-topBtnLayout.Parent = topBtnRow
-
-local function makeFlingBtn(text, color, width)
-    local btn = Instance.new("TextButton")
-    btn.Size = UDim2.new(0, width, 1, 0)
-    btn.BackgroundColor3 = color
-    btn.BorderSizePixel = 0
-    btn.Text = text
-    btn.TextColor3 = COLORS.Text
-    btn.Font = Enum.Font.GothamBold
-    btn.TextSize = 10
-    btn.AutoButtonColor = false
-    btn.Parent = topBtnRow
-    Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 5)
-    return btn
+local function makeFlingBtn(text, width, color)
+    local b = Instance.new("TextButton")
+    b.Size = UDim2.new(0, width, 0, 26)
+    b.BackgroundColor3 = color
+    b.BorderSizePixel = 0
+    b.Text = text
+    b.Font = Enum.Font.GothamBold
+    b.TextSize = 11
+    b.TextColor3 = Color3.fromRGB(255, 255, 255)
+    b.AutoButtonColor = false
+    b.Parent = topRow
+    Instance.new("UICorner", b).CornerRadius = UDim.new(0, 6)
+    return b
 end
 
-local selectAllBtn   = makeFlingBtn("Select All",   COLORS.Accent, 78)
-local deselectAllBtn = makeFlingBtn("Deselect All", COLORS.Row,    82)
-local startFlingBtn  = makeFlingBtn("Start Fling",  COLORS.Green,  78)
-local stopFlingBtn   = makeFlingBtn("Stop Fling",   COLORS.Red,    78)
+local selectAllBtn    = makeFlingBtn("Select All", 78, COLORS.Accent)
+local deselectAllBtn  = makeFlingBtn("Deselect All", 88, COLORS.Row)
+local startFlingBtn   = makeFlingBtn("Start Fling", 82, COLORS.Green)
+local stopFlingBtn    = makeFlingBtn("Stop Fling", 78, COLORS.Red)
+stopFlingBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
 
--- ─── FOLLOW OFFSETS ───
-local offsetRowY = Instance.new("Frame")
-offsetRowY.Size = UDim2.new(1, 0, 0, 20)
-offsetRowY.Position = UDim2.new(0, 0, 0, 34)
-offsetRowY.BackgroundTransparency = 1
-offsetRowY.Parent = flingContainer
+-- ─── Status Label ───
+local statusLabel = Instance.new("TextLabel")
+statusLabel.Size = UDim2.new(1, 0, 0, 18)
+statusLabel.Position = UDim2.new(0, 0, 0, 34)
+statusLabel.BackgroundTransparency = 1
+statusLabel.Text = "Selected: 0 | Flinging: No"
+statusLabel.Font = Enum.Font.GothamMedium
+statusLabel.TextSize = 11
+statusLabel.TextColor3 = COLORS.SubText
+statusLabel.TextXAlignment = Enum.TextXAlignment.Left
+statusLabel.Parent = flingContainer
+
+-- ─── Follow Sliders ───
+local slidersSection = Instance.new("Frame")
+slidersSection.Size = UDim2.new(1, 0, 0, 56)
+slidersSection.Position = UDim2.new(0, 0, 0, 56)
+slidersSection.BackgroundTransparency = 1
+slidersSection.Parent = flingContainer
+
+local slidersLayout = Instance.new("UIListLayout")
+slidersLayout.Padding = UDim.new(0, 4)
+slidersLayout.Parent = slidersSection
+
+local followState = { y = 0, xz = -3 }
 
 local yLabel = Instance.new("TextLabel")
-yLabel.Size = UDim2.new(0, 90, 1, 0)
+yLabel.Size = UDim2.new(1, 0, 0, 12)
 yLabel.BackgroundTransparency = 1
-yLabel.Text = "Follow Y"
-yLabel.TextColor3 = COLORS.Text
-yLabel.Font = Enum.Font.GothamMedium
-yLabel.TextSize = 12
+yLabel.Text = "Follow Y (Height)"
+yLabel.Font = Enum.Font.GothamBold
+yLabel.TextSize = 10
+yLabel.TextColor3 = COLORS.SubText
 yLabel.TextXAlignment = Enum.TextXAlignment.Left
-yLabel.Parent = offsetRowY
+yLabel.Parent = slidersSection
 
 local ySliderHolder = Instance.new("Frame")
-ySliderHolder.Size = UDim2.new(1, -90, 1, 0)
-ySliderHolder.Position = UDim2.new(0, 90, 0, 0)
+ySliderHolder.Size = UDim2.new(1, 0, 0, 18)
 ySliderHolder.BackgroundTransparency = 1
-ySliderHolder.Parent = offsetRowY
+ySliderHolder.Parent = slidersSection
 
-createSlider(ySliderHolder, -50, 50, 0, function(v) flingState.offsetY = v end)
-
-local offsetRowXZ = Instance.new("Frame")
-offsetRowXZ.Size = UDim2.new(1, 0, 0, 20)
-offsetRowXZ.Position = UDim2.new(0, 0, 0, 60)
-offsetRowXZ.BackgroundTransparency = 1
-offsetRowXZ.Parent = flingContainer
+local ySlider = createSlider(ySliderHolder, -50, 50, 0, function(v) followState.y = v end)
 
 local xzLabel = Instance.new("TextLabel")
-xzLabel.Size = UDim2.new(0, 90, 1, 0)
+xzLabel.Size = UDim2.new(1, 0, 0, 12)
 xzLabel.BackgroundTransparency = 1
-xzLabel.Text = "Follow X/Z"
-xzLabel.TextColor3 = COLORS.Text
-xzLabel.Font = Enum.Font.GothamMedium
-xzLabel.TextSize = 12
+xzLabel.Text = "Follow X/Z (Back ↔ Front)"
+xzLabel.Font = Enum.Font.GothamBold
+xzLabel.TextSize = 10
+xzLabel.TextColor3 = COLORS.SubText
 xzLabel.TextXAlignment = Enum.TextXAlignment.Left
-xzLabel.Parent = offsetRowXZ
+xzLabel.Parent = slidersSection
 
 local xzSliderHolder = Instance.new("Frame")
-xzSliderHolder.Size = UDim2.new(1, -90, 1, 0)
-xzSliderHolder.Position = UDim2.new(0, 90, 0, 0)
+xzSliderHolder.Size = UDim2.new(1, 0, 0, 18)
 xzSliderHolder.BackgroundTransparency = 1
-xzSliderHolder.Parent = offsetRowXZ
+xzSliderHolder.Parent = slidersSection
 
-createSlider(xzSliderHolder, -50, 50, 0, function(v) flingState.offsetXZ = v end)
+local xzSlider = createSlider(xzSliderHolder, -50, 50, -3, function(v) followState.xz = v end)
 
--- ─── PLAYER LIST ───
-local listHeader = Instance.new("TextLabel")
-listHeader.Size = UDim2.new(1, 0, 0, 18)
-listHeader.Position = UDim2.new(0, 0, 0, 86)
-listHeader.BackgroundTransparency = 1
-listHeader.Text = "Players"
-listHeader.Font = Enum.Font.GothamBold
-listHeader.TextSize = 12
-listHeader.TextColor3 = COLORS.Text
-listHeader.TextXAlignment = Enum.TextXAlignment.Left
-listHeader.Parent = flingContainer
+-- ─── Player List ───
+local playerListLabel = Instance.new("TextLabel")
+playerListLabel.Size = UDim2.new(1, 0, 0, 16)
+playerListLabel.Position = UDim2.new(0, 0, 0, 118)
+playerListLabel.BackgroundTransparency = 1
+playerListLabel.Text = "Players"
+playerListLabel.Font = Enum.Font.GothamBold
+playerListLabel.TextSize = 12
+playerListLabel.TextColor3 = COLORS.Text
+playerListLabel.TextXAlignment = Enum.TextXAlignment.Left
+playerListLabel.Parent = flingContainer
 
-local playerListScroll = Instance.new("ScrollingFrame")
-playerListScroll.Size = UDim2.new(1, 0, 1, -110)
-playerListScroll.Position = UDim2.new(0, 0, 0, 106)
-playerListScroll.BackgroundColor3 = COLORS.Row
-playerListScroll.BorderSizePixel = 0
-playerListScroll.ScrollBarThickness = 4
-playerListScroll.ScrollBarImageColor3 = Color3.fromRGB(80, 90, 110)
-playerListScroll.CanvasSize = UDim2.new(0, 0, 0, 0)
-playerListScroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
-playerListScroll.Parent = flingContainer
-Instance.new("UICorner", playerListScroll).CornerRadius = UDim.new(0, 8)
-
-local playerListLayout = Instance.new("UIListLayout")
-playerListLayout.Padding = UDim.new(0, 4)
-playerListLayout.SortOrder = Enum.SortOrder.LayoutOrder
-playerListLayout.Parent = playerListScroll
+local playerList = Instance.new("ScrollingFrame")
+playerList.Size = UDim2.new(1, 0, 1, -140)
+playerList.Position = UDim2.new(0, 0, 0, 140)
+playerList.BackgroundColor3 = COLORS.Row
+playerList.BorderSizePixel = 0
+playerList.ScrollBarThickness = 4
+playerList.ScrollBarImageColor3 = Color3.fromRGB(80, 90, 110)
+playerList.CanvasSize = UDim2.new(0, 0, 0, 0)
+playerList.AutomaticCanvasSize = Enum.AutomaticSize.Y
+playerList.Parent = flingContainer
+Instance.new("UICorner", playerList).CornerRadius = UDim.new(0, 8)
 
 local playerListPadding = Instance.new("UIPadding")
-playerListPadding.PaddingTop = UDim.new(0, 6)
-playerListPadding.PaddingLeft = UDim.new(0, 6)
-playerListPadding.PaddingRight = UDim.new(0, 6)
-playerListPadding.PaddingBottom = UDim.new(0, 6)
-playerListPadding.Parent = playerListScroll
+playerListPadding.PaddingTop = UDim.new(0, 4)
+playerListPadding.PaddingLeft = UDim.new(0, 4)
+playerListPadding.PaddingRight = UDim.new(0, 4)
+playerListPadding.PaddingBottom = UDim.new(0, 4)
+playerListPadding.Parent = playerList
 
-local playerRows = {}
+local playerListLayout = Instance.new("UIListLayout")
+playerListLayout.Padding = UDim.new(0, 3)
+playerListLayout.Parent = playerList
 
-local function refreshPlayerList()
-    for _, child in ipairs(playerListScroll:GetChildren()) do
+local flingSelected = {}
+local followTarget = nil
+local viewTarget = nil
+local originalCamSubject = nil
+local viewHighlight = nil
+
+local flingState = {
+    active = false,
+    targets = {},
+    index = 1,
+    lastSwitch = 0,
+    originalCF = nil,
+    angularVel = nil,
+}
+
+local function updateStatusLabel()
+    local count = 0
+    for _, v in pairs(flingSelected) do if v then count += 1 end end
+    statusLabel.Text = string.format("Selected: %d | Flinging: %s",
+        count, flingState.active and "Yes" or "No")
+end
+
+local function stopView()
+    if viewTarget then
+        local cam = workspace.CurrentCamera
+        local myHum = LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
+        cam.CameraSubject = myHum or originalCamSubject
+        viewTarget = nil
+    end
+    if viewHighlight then viewHighlight:Destroy(); viewHighlight = nil end
+    originalCamSubject = nil
+end
+
+local function startView(plr)
+    if viewTarget == plr then stopView(); return end
+    stopView()
+    if not plr.Character then return end
+    local targetHum = plr.Character:FindFirstChildOfClass("Humanoid")
+    if not targetHum then return end
+    local cam = workspace.CurrentCamera
+    originalCamSubject = cam.CameraSubject
+    cam.CameraSubject = targetHum
+    viewTarget = plr
+
+    -- White chams on own character
+    local myChar = LocalPlayer.Character
+    if myChar then
+        local hl = Instance.new("Highlight")
+        hl.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+        hl.FillColor = Color3.fromRGB(255, 255, 255)
+        hl.OutlineColor = Color3.fromRGB(255, 255, 255)
+        hl.FillTransparency = 0.55
+        hl.OutlineTransparency = 0
+        hl.Parent = myChar
+        viewHighlight = hl
+    end
+end
+
+local function rebuildPlayerList()
+    for _, child in ipairs(playerList:GetChildren()) do
         if child:IsA("Frame") then child:Destroy() end
     end
-    playerRows = {}
 
-    local list = {}
+    local sorted = {}
     for _, plr in ipairs(Players:GetPlayers()) do
-        if plr ~= LocalPlayer then table.insert(list, plr) end
+        if plr ~= LocalPlayer then table.insert(sorted, plr) end
     end
-    table.sort(list, function(a, b) return a.Name:lower() < b.Name:lower() end)
+    table.sort(sorted, function(a, b) return a.Name:lower() < b.Name:lower() end)
 
-    for i, plr in ipairs(list) do
+    for i, plr in ipairs(sorted) do
         local row = Instance.new("Frame")
+        row.Name = plr.Name
         row.Size = UDim2.new(1, 0, 0, 30)
         row.BackgroundColor3 = COLORS.Background
         row.BorderSizePixel = 0
         row.LayoutOrder = i
-        row.Parent = playerListScroll
+        row.Parent = playerList
         Instance.new("UICorner", row).CornerRadius = UDim.new(0, 6)
 
-        local cb = createCheckbox(row, function(state)
-            flingState.selected[plr] = state
-        end)
-        cb.Instance.Position = UDim2.new(0, 6, 0.5, -9)
-        cb.Set(flingState.selected[plr] or false, true)
+        -- Checkbox
+        local checkbox = Instance.new("TextButton")
+        checkbox.Size = UDim2.new(0, 18, 0, 18)
+        checkbox.Position = UDim2.new(0, 6, 0.5, -9)
+        checkbox.BackgroundColor3 = COLORS.Row
+        checkbox.BorderSizePixel = 0
+        checkbox.Text = ""
+        checkbox.AutoButtonColor = false
+        checkbox.Parent = row
+        Instance.new("UICorner", checkbox).CornerRadius = UDim.new(0, 4)
 
+        local checkMark = Instance.new("TextLabel")
+        checkMark.Size = UDim2.new(1, 0, 1, 0)
+        checkMark.BackgroundTransparency = 1
+        checkMark.Text = flingSelected[plr] and "✓" or ""
+        checkMark.Font = Enum.Font.GothamBold
+        checkMark.TextSize = 14
+        checkMark.TextColor3 = COLORS.Green
+        checkMark.Parent = checkbox
+
+        -- Name
         local nameLbl = Instance.new("TextLabel")
-        nameLbl.Size = UDim2.new(0, 100, 1, 0)
+        nameLbl.Size = UDim2.new(1, -200, 1, 0)
         nameLbl.Position = UDim2.new(0, 30, 0, 0)
         nameLbl.BackgroundTransparency = 1
         nameLbl.Text = plr.Name
-        nameLbl.TextColor3 = COLORS.Text
         nameLbl.Font = Enum.Font.GothamMedium
-        nameLbl.TextSize = 11
+        nameLbl.TextSize = 12
+        nameLbl.TextColor3 = COLORS.Text
         nameLbl.TextXAlignment = Enum.TextXAlignment.Left
         nameLbl.TextTruncate = Enum.TextTruncate.AtEnd
         nameLbl.Parent = row
 
-        local btnRow = Instance.new("Frame")
-        btnRow.Size = UDim2.new(0, 172, 1, 0)
-        btnRow.Position = UDim2.new(1, -6, 0, 0)
-        btnRow.AnchorPoint = Vector2.new(1, 0)
-        btnRow.BackgroundTransparency = 1
-        btnRow.Parent = row
+        -- Buttons Frame (rechts)
+        local btnsFrame = Instance.new("Frame")
+        btnsFrame.Size = UDim2.new(0, 170, 1, 0)
+        btnsFrame.Position = UDim2.new(1, -4, 0, 0)
+        btnsFrame.AnchorPoint = Vector2.new(1, 0)
+        btnsFrame.BackgroundTransparency = 1
+        btnsFrame.Parent = row
 
-        local btnLayout = Instance.new("UIListLayout")
-        btnLayout.FillDirection = Enum.FillDirection.Horizontal
-        btnLayout.HorizontalAlignment = Enum.HorizontalAlignment.Right
-        btnLayout.VerticalAlignment = Enum.VerticalAlignment.Center
-        btnLayout.Padding = UDim.new(0, 4)
-        btnLayout.Parent = btnRow
+        local btnsLayout = Instance.new("UIListLayout")
+        btnsLayout.FillDirection = Enum.FillDirection.Horizontal
+        btnsLayout.HorizontalAlignment = Enum.HorizontalAlignment.Right
+        btnsLayout.VerticalAlignment = Enum.VerticalAlignment.Center
+        btnsLayout.Padding = UDim.new(0, 4)
+        btnsLayout.Parent = btnsFrame
 
-        local function smallBtn(text, color)
+        local function makeRowBtn(text, w, col)
             local b = Instance.new("TextButton")
-            b.Size = UDim2.new(0, 52, 0, 22)
-            b.BackgroundColor3 = color
+            b.Size = UDim2.new(0, w, 0, 22)
+            b.BackgroundColor3 = col
             b.BorderSizePixel = 0
             b.Text = text
-            b.TextColor3 = COLORS.Text
             b.Font = Enum.Font.GothamBold
             b.TextSize = 10
+            b.TextColor3 = Color3.fromRGB(255, 255, 255)
             b.AutoButtonColor = false
-            b.Parent = btnRow
-            Instance.new("UICorner", b).CornerRadius = UDim.new(0, 4)
+            b.Parent = btnsFrame
+            Instance.new("UICorner", b).CornerRadius = UDim.new(0, 5)
             return b
         end
 
-        local tpBtn = smallBtn("TP", COLORS.Accent)
-        local viewBtn = smallBtn("View", COLORS.Row)
-        local followBtn = smallBtn("Follow", COLORS.Row)
+        local tpRowBtn     = makeRowBtn("TP", 38, COLORS.Accent)
+        local viewRowBtn   = makeRowBtn("View", 44, COLORS.Row)
+        local followRowBtn = makeRowBtn("Follow", 52, COLORS.Row)
+
+        if followTarget == plr then
+            followRowBtn.BackgroundColor3 = COLORS.Green
+        end
+        if viewTarget == plr then
+            viewRowBtn.BackgroundColor3 = COLORS.Green
+        end
+
+        -- Checkbox click
+        checkbox.MouseButton1Click:Connect(function()
+            flingSelected[plr] = not flingSelected[plr]
+            checkMark.Text = flingSelected[plr] and "✓" or ""
+            updateStatusLabel()
+        end)
 
         -- TP
-        tpBtn.MouseButton1Click:Connect(function()
-            local targetChar = plr.Character
+        tpRowBtn.MouseButton1Click:Connect(function()
             local myHrp = getHRP()
-            if targetChar and myHrp then
-                local targetHrp = targetChar:FindFirstChild("HumanoidRootPart")
-                if targetHrp then
-                    myHrp.CFrame = targetHrp.CFrame * CFrame.new(0, 0, 3)
-                end
-            end
+            local tgt = plr.Character and plr.Character:FindFirstChild("HumanoidRootPart")
+            if myHrp and tgt then myHrp.CFrame = tgt.CFrame + Vector3.new(0, 0, -3) end
         end)
 
-        -- View (toggle)
-        viewBtn.MouseButton1Click:Connect(function()
-            if flingState.viewing and flingState.viewTarget == plr then
-                flingState.viewing = false
-                flingState.viewTarget = nil
-                local cam = workspace.CurrentCamera
-                local myHum = getHumanoid()
-                if myHum then cam.CameraSubject = myHum end
-                viewBtn.BackgroundColor3 = COLORS.Row
-                if flingState.viewHighlight then
-                    flingState.viewHighlight:Destroy()
-                    flingState.viewHighlight = nil
-                end
+        -- View
+        viewRowBtn.MouseButton1Click:Connect(function()
+            if viewTarget == plr then
+                stopView()
+                viewRowBtn.BackgroundColor3 = COLORS.Row
             else
-                flingState.viewing = true
-                flingState.viewTarget = plr
-                local cam = workspace.CurrentCamera
-                if plr.Character and plr.Character:FindFirstChildOfClass("Humanoid") then
-                    cam.CameraSubject = plr.Character:FindFirstChildOfClass("Humanoid")
-                    cam.CameraType = Enum.CameraType.Custom
+                startView(plr)
+                -- Reset alle anderen View-Buttons
+                for _, r in ipairs(playerList:GetChildren()) do
+                    if r:IsA("Frame") then
+                        for _, b in ipairs(r:GetDescendants()) do
+                            if b:IsA("TextButton") and b.Text == "View" then
+                                b.BackgroundColor3 = COLORS.Row
+                            end
+                        end
+                    end
                 end
-                viewBtn.BackgroundColor3 = COLORS.Green
-                -- White chams on own char
-                local myChar = LocalPlayer.Character
-                if myChar then
-                    if flingState.viewHighlight then flingState.viewHighlight:Destroy() end
-                    local hl = Instance.new("Highlight")
-                    hl.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
-                    hl.FillColor = Color3.fromRGB(255, 255, 255)
-                    hl.OutlineColor = Color3.fromRGB(255, 255, 255)
-                    hl.FillTransparency = 0.5
-                    hl.OutlineTransparency = 0
-                    hl.Parent = myChar
-                    flingState.viewHighlight = hl
-                end
+                viewRowBtn.BackgroundColor3 = COLORS.Green
             end
         end)
 
-        -- Follow (toggle)
-        followBtn.MouseButton1Click:Connect(function()
-            if flingState.followEnabled and flingState.followTarget == plr then
-                flingState.followEnabled = false
-                flingState.followTarget = nil
-                followBtn.BackgroundColor3 = COLORS.Row
+        -- Follow
+        followRowBtn.MouseButton1Click:Connect(function()
+            if followTarget == plr then
+                followTarget = nil
+                followRowBtn.BackgroundColor3 = COLORS.Row
             else
-                -- Reset previous follow button color
-                for _, data in pairs(playerRows) do
-                    if data.followBtn then data.followBtn.BackgroundColor3 = COLORS.Row end
+                followTarget = plr
+                for _, r in ipairs(playerList:GetChildren()) do
+                    if r:IsA("Frame") then
+                        for _, b in ipairs(r:GetDescendants()) do
+                            if b:IsA("TextButton") and b.Text == "Follow" then
+                                b.BackgroundColor3 = COLORS.Row
+                            end
+                        end
+                    end
                 end
-                flingState.followEnabled = true
-                flingState.followTarget = plr
-                followBtn.BackgroundColor3 = COLORS.Green
+                followRowBtn.BackgroundColor3 = COLORS.Green
             end
         end)
-
-        playerRows[plr] = { row = row, checkbox = cb, followBtn = followBtn, viewBtn = viewBtn }
     end
+
+    updateStatusLabel()
 end
 
-Players.PlayerAdded:Connect(function() task.wait(0.3); refreshPlayerList() end)
+rebuildPlayerList()
+Players.PlayerAdded:Connect(function() task.wait(0.2); rebuildPlayerList() end)
 Players.PlayerRemoving:Connect(function(plr)
-    flingState.selected[plr] = nil
-    if flingState.followTarget == plr then
-        flingState.followEnabled = false
-        flingState.followTarget = nil
-    end
-    if flingState.viewTarget == plr then
-        flingState.viewing = false
-        flingState.viewTarget = nil
-    end
+    flingSelected[plr] = nil
+    if followTarget == plr then followTarget = nil end
+    if viewTarget == plr then stopView() end
     task.wait(0.1)
-    refreshPlayerList()
+    rebuildPlayerList()
 end)
 
-refreshPlayerList()
-
--- ─── BUTTON HANDLERS ───
+-- ─── Select / Deselect All ───
 selectAllBtn.MouseButton1Click:Connect(function()
     for _, plr in ipairs(Players:GetPlayers()) do
-        if plr ~= LocalPlayer then flingState.selected[plr] = true end
+        if plr ~= LocalPlayer then flingSelected[plr] = true end
     end
-    for _, data in pairs(playerRows) do data.checkbox.Set(true, true) end
+    rebuildPlayerList()
 end)
 
 deselectAllBtn.MouseButton1Click:Connect(function()
-    flingState.selected = {}
-    for _, data in pairs(playerRows) do data.checkbox.Set(false, true) end
+    flingSelected = {}
+    rebuildPlayerList()
 end)
 
-startFlingBtn.MouseButton1Click:Connect(function()
-    flingState.targetList = {}
-    for plr, sel in pairs(flingState.selected) do
-        if sel and plr.Parent and plr.Character and plr.Character:FindFirstChild("HumanoidRootPart") then
-            table.insert(flingState.targetList, plr)
-        end
-    end
-    if #flingState.targetList == 0 then return end
-    local hrp = getHRP()
-    if not hrp then return end
-    flingState.originalCFrame = hrp.CFrame
-    flingState.active = true
-    flingState.currentIndex = 1
-    flingState.lastSwitchTime = tick()
-    flingState.followEnabled = false
-end)
-
-stopFlingBtn.MouseButton1Click:Connect(function()
-    if not flingState.active then return end
-    flingState.active = false
-    if flingState.originalCFrame then
-        local hrp = getHRP()
-        if hrp then
-            hrp.CFrame = flingState.originalCFrame
-            hrp.Velocity = Vector3.new(0, 0, 0)
-            hrp.RotVelocity = Vector3.new(0, 0, 0)
-        end
-    end
-    flingState.originalCFrame = nil
-end)
-
--- ─── FLING LOOP ───
-RunService.Stepped:Connect(function()
-    if not flingState.active then return end
-    local hrp = getHRP()
-    if not hrp then return end
-
-    if #flingState.targetList == 0 then
-        flingState.active = false
-        return
-    end
-
-    flingState.currentIndex = ((flingState.currentIndex - 1) % #flingState.targetList) + 1
-    local target = flingState.targetList[flingState.currentIndex]
-
-    if not target or not target.Parent then
-        table.remove(flingState.targetList, flingState.currentIndex)
-        return
-    end
-
-    local targetChar = target.Character
-    if not targetChar then return end
-    local targetHrp = targetChar:FindFirstChild("HumanoidRootPart")
-    if not targetHrp then return end
-
-    if tick() - flingState.lastSwitchTime >= 3 then
-        flingState.lastSwitchTime = tick()
-        flingState.currentIndex = (flingState.currentIndex % #flingState.targetList) + 1
-        return
-    end
-
-    -- FLING: teleport into target + spin extremely fast
-    hrp.Velocity = Vector3.new(0, 0, 0)
-    hrp.RotVelocity = Vector3.new(0, 0, 0)
-    hrp.CFrame = targetHrp.CFrame * CFrame.Angles(0, tick() * 100000, 0)
-end)
-
--- ─── FOLLOW LOOP ───
-RunService.RenderStepped:Connect(function()
-    if not flingState.followEnabled or not flingState.followTarget then return end
+-- ─── Start Fling ───
+local function startFling()
     if flingState.active then return end
 
-    local target = flingState.followTarget
-    if not target or not target.Parent then
-        flingState.followEnabled = false
+    -- Sammle alle ausgewählten Spieler
+    local targets = {}
+    for _, plr in ipairs(Players:GetPlayers()) do
+        if plr ~= LocalPlayer and flingSelected[plr] and plr.Character then
+            local tHRP = plr.Character:FindFirstChild("HumanoidRootPart")
+            if tHRP then table.insert(targets, plr) end
+        end
+    end
+    if #targets == 0 then
+        statusLabel.Text = "Kein Spieler ausgewählt!"
         return
     end
 
-    local targetChar = target.Character
-    if not targetChar then return end
-    local targetHrp = targetChar:FindFirstChild("HumanoidRootPart")
-    if not targetHrp then return end
+    local myHrp = getHRP()
+    if not myHrp then return end
 
-    local hrp = getHRP()
-    if not hrp then return end
+    flingState.active = true
+    flingState.targets = targets
+    flingState.index = 1
+    flingState.lastSwitch = tick()
+    flingState.originalCF = myHrp.CFrame
 
-    -- In Roblox: +Z = behind, -Z = front, +X = right, -X = left
-    -- We negate XZ for Z so negative slider values put you BEHIND (as user wanted)
-    local offset = CFrame.new(flingState.offsetXZ, flingState.offsetY, -flingState.offsetXZ)
-    hrp.CFrame = targetHrp.CFrame * offset
-    hrp.Velocity = Vector3.new(0, 0, 0)
-    hrp.RotVelocity = Vector3.new(0, 0, 0)
+    -- Self noclip (außer HRP)
+    local myChar = LocalPlayer.Character
+    if myChar then
+        for _, part in ipairs(myChar:GetDescendants()) do
+            if part:IsA("BasePart") and part.Name ~= "HumanoidRootPart" then
+                part.CanCollide = false
+            end
+        end
+    end
+
+    -- Extreme Spin auf HRP
+    myHrp.CanCollide = true
+    local spin = Instance.new("BodyAngularVelocity")
+    spin.MaxTorque = Vector3.new(math.huge, math.huge, math.huge)
+    spin.AngularVelocity = Vector3.new(99999, 99999, 99999)
+    spin.P = 1250
+    spin.Parent = myHrp
+    flingState.angularVel = spin
+
+    updateStatusLabel()
+end
+
+local function stopFling()
+    if not flingState.active then return end
+    flingState.active = false
+
+    if flingState.angularVel then
+        flingState.angularVel:Destroy()
+        flingState.angularVel = nil
+    end
+
+    -- Zurück zur ursprünglichen Position
+    local myHrp = getHRP()
+    if myHrp and flingState.originalCF then
+        myHrp.CFrame = flingState.originalCF
+        myHrp.Velocity = Vector3.new(0, 0, 0)
+    end
+
+    -- Kollision wiederherstellen
+    local myChar = LocalPlayer.Character
+    if myChar then
+        for _, part in ipairs(myChar:GetDescendants()) do
+            if part:IsA("BasePart") then part.CanCollide = true end
+        end
+    end
+
+    flingState.targets = {}
+    flingState.originalCF = nil
+    updateStatusLabel()
+end
+
+startFlingBtn.MouseButton1Click:Connect(startFling)
+stopFlingBtn.MouseButton1Click:Connect(stopFling)
+
+-- ─── Fling Loop ───
+RunService.Heartbeat:Connect(function()
+    if not flingState.active then return end
+    local targets = flingState.targets
+    if #targets == 0 then stopFling(); return end
+
+    -- Multi-target: alle 3 Sekunden wechseln
+    if #targets > 1 then
+        local now = tick()
+        if now - flingState.lastSwitch > 3 then
+            flingState.index = (flingState.index % #targets) + 1
+            flingState.lastSwitch = now
+        end
+    else
+        flingState.index = 1
+    end
+
+    local target = targets[flingState.index]
+    if not target or not target.Character then
+        -- Nächsten Ziel suchen
+        flingState.index = (flingState.index % #targets) + 1
+        return
+    end
+
+    local tHRP = target.Character:FindFirstChild("HumanoidRootPart")
+    local myHrp = getHRP()
+    if not tHRP or not myHrp then return end
+
+    -- Teleportiere direkt in das Ziel + kleiner Jitter
+    local jitter = Vector3.new(
+        (math.random() - 0.5) * 0.2,
+        (math.random() - 0.5) * 0.2,
+        (math.random() - 0.5) * 0.2
+    )
+    myHrp.CFrame = tHRP.CFrame * CFrame.new(jitter)
+    myHrp.Velocity = Vector3.new(
+        math.random(-1000, 1000),
+        math.random(-1000, 1000),
+        math.random(-1000, 1000)
+    )
+end)
+
+-- ─── Follow Loop ───
+RunService.Heartbeat:Connect(function()
+    if not followTarget then return end
+    if flingState.active then return end -- Fling hat Vorrang
+    if not followTarget.Character then followTarget = nil; return end
+
+    local tHRP = followTarget.Character:FindFirstChild("HumanoidRootPart")
+    local myHrp = getHRP()
+    if not tHRP or not myHrp then return end
+
+    -- Offset anwenden: +Z = hinter (Roblox -Z ist "vorne")
+    -- Slider xz: negativ = hinter, positiv = vorne
+    -- In local space: -Z = vorne, +Z = hinten
+    -- Also: vorne (slider +X) → -Z offset, hinten (slider -X) → +Z offset
+    local zOffset = -followState.xz
+    local yOffset = followState.y
+
+    local targetCF = tHRP.CFrame
+    myHrp.CFrame = targetCF * CFrame.new(0, yOffset, zOffset)
+    myHrp.Velocity = Vector3.zero
 end)
 
 -- ═══════════════════════════════════════════════════════════
@@ -1926,7 +1954,10 @@ end
 
 local YesBtn = makeDialogBtn("Yes", UDim2.new(0, 15, 1, -50), COLORS.Green)
 local NoBtn  = makeDialogBtn("No",  UDim2.new(1, -135, 1, -50), COLORS.Red)
-YesBtn.MouseButton1Click:Connect(function() ScreenGui:Destroy() end)
+YesBtn.MouseButton1Click:Connect(function()
+    stopFling(); stopView()
+    ScreenGui:Destroy()
+end)
 NoBtn.MouseButton1Click:Connect(function() ConfirmFrame.Visible = false end)
 CloseBtn.MouseButton1Click:Connect(function() ConfirmFrame.Visible = true end)
 
@@ -1941,7 +1972,9 @@ task.spawn(function()
         Title.TextColor3 = color
         TitleStroke.Color = color
         for _, data in pairs(tabButtons) do
-            if data.accent.Visible then data.accent.BackgroundColor3 = color end
+            if data.accent.Visible then
+                data.accent.BackgroundColor3 = color
+            end
         end
         RunService.RenderStepped:Wait()
     end
