@@ -1,6 +1,6 @@
 --[[
     MTRN Projects V1.3
-    Complete - Info + Player + ESP + Fling + Smooth Fly
+    Complete - Info + Player + ESP + Fling + Visuals
 --]]
 
 local Players          = game:GetService("Players")
@@ -8,6 +8,7 @@ local RunService       = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
 local Stats            = game:GetService("Stats")
 local TweenService     = game:GetService("TweenService")
+local Lighting         = game:GetService("Lighting")
 
 local LocalPlayer = Players.LocalPlayer
 
@@ -273,8 +274,8 @@ local function selectTab(name)
     end
 end
 
-local TAB_LIST = { "Info", "Player", "ESP", "Fling", "Misc", "Settings" }
-local BUILT_TABS = { Info = true, Player = true, ESP = true, Fling = true }
+local TAB_LIST = { "Info", "Player", "ESP", "Fling", "Visuals", "Settings" }
+local BUILT_TABS = { Info = true, Player = true, ESP = true, Fling = true, Visuals = true }
 
 for i, name in ipairs(TAB_LIST) do
     local btn, accent = createTab(name, i)
@@ -915,7 +916,6 @@ end
 local flyUpBtn = makeFlyBtn("▲", 1)
 local flyDownBtn = makeFlyBtn("▼", 2)
 
--- ─── FLY (Smooth / Wall-Adaptive) ───
 local flyBodyVel
 local flyBodyGyro
 local flyConnection
@@ -967,11 +967,9 @@ local function startFly()
         local lookVec  = camCF.LookVector
         local rightVec = camCF.RightVector
 
-        -- 🎯 Smooth Body Rotation via BodyGyro
         local gyroTarget = CFrame.new(hrp.Position, hrp.Position + lookVec)
         flyBodyGyro.CFrame = flyBodyGyro.CFrame:Lerp(gyroTarget, 0.15)
 
-        -- 🏃 Bewegung
         local moveVec = Vector3.new(0, 0, 0)
         local usingKeys = false
 
@@ -1118,6 +1116,7 @@ local tpKeybind = createKeybind(coordBtnRow, Enum.KeyCode.T, function()
         if hrp then hrp.CFrame = CFrame.new(tonumber(x), tonumber(y), tonumber(z)) end
     end
 end)
+tpKeybind.Instance.Position = UDim2.new(0, 187, 0, 26 * 0 + 0)
 tpKeybind.Instance.Position = UDim2.new(0, 187, 0, 0)
 tpKeybind.Instance.Size = UDim2.new(0, 42, 0, 26)
 tpKeybind.Instance.Parent = coordBtnRow
@@ -1420,7 +1419,6 @@ local flingContainer = pages["Fling"].container
 
 local topRow = Instance.new("Frame")
 topRow.Size = UDim2.new(1, 0, 0, 30)
-topRow.Position = UDim2.new(0, 0, 0, 0)
 topRow.BackgroundTransparency = 1
 topRow.Parent = flingContainer
 
@@ -1449,7 +1447,6 @@ local selectAllBtn    = makeFlingBtn("Select All", 78, COLORS.Accent)
 local deselectAllBtn  = makeFlingBtn("Deselect All", 88, COLORS.Row)
 local startFlingBtn   = makeFlingBtn("Start Fling", 82, COLORS.Green)
 local stopFlingBtn    = makeFlingBtn("Stop Fling", 78, COLORS.Red)
-stopFlingBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
 
 local statusLabel = Instance.new("TextLabel")
 statusLabel.Size = UDim2.new(1, 0, 0, 18)
@@ -1549,12 +1546,8 @@ local originalCamSubject = nil
 local viewHighlight = nil
 
 local flingState = {
-    active = false,
-    targets = {},
-    index = 1,
-    lastSwitch = 0,
-    originalCF = nil,
-    angularVel = nil,
+    active = false, targets = {}, index = 1,
+    lastSwitch = 0, originalCF = nil, angularVel = nil,
 }
 
 local function updateStatusLabel()
@@ -1910,6 +1903,390 @@ RunService.Heartbeat:Connect(function()
 end)
 
 -- ═══════════════════════════════════════════════════════════
+-- 👁️ VISUALS TAB
+-- ═══════════════════════════════════════════════════════════
+local visualsContainer = pages["Visuals"].container
+
+local visualsScroll = Instance.new("ScrollingFrame")
+visualsScroll.Size = UDim2.new(1, 0, 1, 0)
+visualsScroll.BackgroundTransparency = 1
+visualsScroll.BorderSizePixel = 0
+visualsScroll.ScrollBarThickness = 4
+visualsScroll.ScrollBarImageColor3 = Color3.fromRGB(80, 90, 110)
+visualsScroll.CanvasSize = UDim2.new(0, 0, 0, 0)
+visualsScroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
+visualsScroll.Parent = visualsContainer
+
+local visualsScrollLayout = Instance.new("UIListLayout")
+visualsScrollLayout.Padding = UDim.new(0, 10)
+visualsScrollLayout.SortOrder = Enum.SortOrder.LayoutOrder
+visualsScrollLayout.Parent = visualsScroll
+
+local visualsScrollPadding = Instance.new("UIPadding")
+visualsScrollPadding.PaddingRight = UDim.new(0, 6)
+visualsScrollPadding.PaddingBottom = UDim.new(0, 8)
+visualsScrollPadding.Parent = visualsScroll
+
+local visualsState = {
+    infZoom = false,
+    freecam = false,
+    fullbright = false,
+    xray = false,
+    coolkidd = false,
+    nofog = false,
+    customFov = false,
+    fovValue = 70,
+}
+
+-- Original Werte merken
+local origLighting = {
+    Brightness      = Lighting.Brightness,
+    Ambient         = Lighting.Ambient,
+    OutdoorAmbient  = Lighting.OutdoorAmbient,
+    ClockTime       = Lighting.ClockTime,
+    GlobalShadows   = Lighting.GlobalShadows,
+    FogEnd          = Lighting.FogEnd,
+    FogStart        = Lighting.FogStart,
+    FogColor        = Lighting.FogColor,
+}
+local origFov = workspace.CurrentCamera and workspace.CurrentCamera.FieldOfView or 70
+local xrayCache = {}
+
+-- ─── Infinity Zoom ───
+local infZoomConn
+local function enableInfZoom()
+    if infZoomConn then return end
+    infZoomConn = RunService.RenderStepped:Connect(function()
+        local cam = workspace.CurrentCamera
+        if cam then cam.FieldOfView = 1 end
+    end)
+end
+local function disableInfZoom()
+    if infZoomConn then infZoomConn:Disconnect(); infZoomConn = nil end
+    local cam = workspace.CurrentCamera
+    if cam then cam.FieldOfView = origFov end
+end
+
+createFeature(visualsScroll, {
+    Label = "Infinity Zoom",
+    Toggle = true,
+    OnToggle = function(on)
+        visualsState.infZoom = on
+        if on then enableInfZoom() else disableInfZoom() end
+    end,
+}).Frame.LayoutOrder = 1
+
+-- ─── Freecam (mit Pfeiltasten + Mobile Buttons) ───
+local freecam = {
+    active = false,
+    cam = nil,
+    pos = Vector3.zero,
+    rot = CFrame.new(),
+    conn = nil,
+    controls = nil,
+}
+
+local function stopFreecam()
+    if freecam.conn then freecam.conn:Disconnect(); freecam.conn = nil end
+    if freecam.controls then freecam.controls:Destroy(); freecam.controls = nil end
+
+    local cam = workspace.CurrentCamera
+    local myHum = LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
+    if cam and myHum then
+        cam.CameraSubject = myHum
+        cam.CameraType = Enum.CameraType.Custom
+    end
+    freecam.active = false
+end
+
+local function startFreecam()
+    stopFreecam()
+
+    local cam = workspace.CurrentCamera
+    if not cam then return end
+
+    freecam.active = true
+    freecam.pos = cam.CFrame.Position
+    freecam.rot = cam.CFrame
+
+    cam.CameraType = Enum.CameraType.Scriptable
+
+    -- Mobile Buttons
+    local controls = Instance.new("Frame")
+    controls.Size = UDim2.new(0, 56, 0, 176)
+    controls.Position = UDim2.new(1, -76, 0.5, -88)
+    controls.BackgroundTransparency = 1
+    controls.Parent = ScreenGui
+    freecam.controls = controls
+
+    local cLayout = Instance.new("UIListLayout")
+    cLayout.Padding = UDim.new(0, 6)
+    cLayout.Parent = controls
+
+    local function makeBtn(text, order)
+        local b = Instance.new("TextButton")
+        b.Size = UDim2.new(1, 0, 0, 40)
+        b.LayoutOrder = order
+        b.BackgroundColor3 = Color3.fromRGB(35, 40, 55)
+        b.BackgroundTransparency = 0.2
+        b.BorderSizePixel = 0
+        b.Text = text
+        b.TextColor3 = Color3.fromRGB(255, 255, 255)
+        b.Font = Enum.Font.GothamBold
+        b.TextSize = 18
+        b.Parent = controls
+        Instance.new("UICorner", b).CornerRadius = UDim.new(0, 8)
+        b:SetAttribute("Held", false)
+        b.InputBegan:Connect(function(i)
+            if i.UserInputType == Enum.UserInputType.Touch or i.UserInputType == Enum.UserInputType.MouseButton1 then
+                b:SetAttribute("Held", true)
+            end
+        end)
+        b.InputEnded:Connect(function(i)
+            if i.UserInputType == Enum.UserInputType.Touch or i.UserInputType == Enum.UserInputType.MouseButton1 then
+                b:SetAttribute("Held", false)
+            end
+        end)
+        return b
+    end
+
+    local fwdBtn  = makeBtn("▲", 1)
+    local backBtn = makeBtn("▼", 2)
+    local leftBtn = makeBtn("◀", 3)
+    local rightBtn = makeBtn("▶", 4)
+
+    local SPEED = 60
+
+    freecam.conn = RunService.RenderStepped:Connect(function(dt)
+        if not freecam.active then return end
+        local cam2 = workspace.CurrentCamera
+        if not cam2 then return end
+
+        -- Rotation von Kamera übernehmen (Maus-Steuerung bleibt aktiv)
+        freecam.rot = cam2.CFrame
+
+        local moveVec = Vector3.zero
+        local lookVec = cam2.CFrame.LookVector
+        local rightVec = cam2.CFrame.RightVector
+
+        -- PC: Pfeiltasten
+        if UserInputService:IsKeyDown(Enum.KeyCode.Up)    then moveVec = moveVec + lookVec end
+        if UserInputService:IsKeyDown(Enum.KeyCode.Down)  then moveVec = moveVec - lookVec end
+        if UserInputService:IsKeyDown(Enum.KeyCode.Left)  then moveVec = moveVec - rightVec end
+        if UserInputService:IsKeyDown(Enum.KeyCode.Right) then moveVec = moveVec + rightVec end
+
+        -- Mobile Buttons
+        if fwdBtn:GetAttribute("Held")   then moveVec = moveVec + lookVec end
+        if backBtn:GetAttribute("Held")  then moveVec = moveVec - lookVec end
+        if leftBtn:GetAttribute("Held")  then moveVec = moveVec - rightVec end
+        if rightBtn:GetAttribute("Held") then moveVec = moveVec + rightVec end
+
+        if moveVec.Magnitude > 0 then
+            freecam.pos = freecam.pos + moveVec.Unit * SPEED * dt
+        end
+
+        cam2.CFrame = CFrame.new(freecam.pos) * (freecam.rot - freecam.rot.Position)
+    end)
+end
+
+createFeature(visualsScroll, {
+    Label = "Freecam",
+    Toggle = true,
+    OnToggle = function(on)
+        visualsState.freecam = on
+        if on then startFreecam() else stopFreecam() end
+    end,
+}).Frame.LayoutOrder = 2
+
+-- ─── Fullbright ───
+local function enableFullbright()
+    Lighting.Brightness = 3
+    Lighting.Ambient = Color3.fromRGB(200, 200, 200)
+    Lighting.OutdoorAmbient = Color3.fromRGB(200, 200, 200)
+    Lighting.ClockTime = 12
+    Lighting.GlobalShadows = false
+end
+
+local function disableFullbright()
+    Lighting.Brightness = origLighting.Brightness
+    Lighting.Ambient = origLighting.Ambient
+    Lighting.OutdoorAmbient = origLighting.OutdoorAmbient
+    Lighting.ClockTime = origLighting.ClockTime
+    Lighting.GlobalShadows = origLighting.GlobalShadows
+end
+
+createFeature(visualsScroll, {
+    Label = "Fullbright",
+    Toggle = true,
+    OnToggle = function(on)
+        visualsState.fullbright = on
+        if on then enableFullbright() else disableFullbright() end
+    end,
+}).Frame.LayoutOrder = 3
+
+-- ─── X-Ray ───
+local function enableXray()
+    for _, v in ipairs(workspace:GetDescendants()) do
+        if v:IsA("BasePart") and not v:IsDescendantOf(LocalPlayer.Character or workspace) then
+            if v.Transparency < 1 then
+                xrayCache[v] = v.Transparency
+                v.Transparency = 0.85
+            end
+        end
+    end
+end
+
+local function disableXray()
+    for part, t in pairs(xrayCache) do
+        if part and part.Parent then
+            part.Transparency = t
+        end
+    end
+    xrayCache = {}
+end
+
+createFeature(visualsScroll, {
+    Label = "X-Ray",
+    Toggle = true,
+    OnToggle = function(on)
+        visualsState.xray = on
+        if on then enableXray() else disableXray() end
+    end,
+}).Frame.LayoutOrder = 4
+
+-- ─── c00lkidd Mode ───
+local COOLKIDD_TEXTURE = "rbxassetid://8408806737"
+local coolkiddCache = {}
+
+local function enableCoolkidd()
+    for _, v in ipairs(workspace:GetDescendants()) do
+        if v:IsA("BasePart") or v:IsA("MeshPart") or v:IsA("Decal") or v:IsA("Texture") then
+            if v:IsA("Decal") or v:IsA("Texture") then
+                if v.Texture ~= COOLKIDD_TEXTURE then
+                    coolkiddCache[v] = v.Texture
+                    v.Texture = COOLKIDD_TEXTURE
+                end
+            elseif v:IsA("BasePart") or v:IsA("MeshPart") then
+                if v.TextureID and v.TextureID ~= "" and v.TextureID ~= COOLKIDD_TEXTURE then
+                    pcall(function() v.TextureID = COOLKIDD_TEXTURE end)
+                end
+                for _, child in ipairs(v:GetChildren()) do
+                    if child:IsA("Decal") or child:IsA("Texture") then
+                        coolkiddCache[child] = child.Texture
+                        child.Texture = COOLKIDD_TEXTURE
+                    end
+                end
+            end
+        end
+    end
+end
+
+local function disableCoolkidd()
+    for obj, tex in pairs(coolkiddCache) do
+        if obj and obj.Parent then
+            pcall(function() obj.Texture = tex end)
+        end
+    end
+    coolkiddCache = {}
+end
+
+createFeature(visualsScroll, {
+    Label = "c00lkidd Mode",
+    Toggle = true,
+    OnToggle = function(on)
+        visualsState.coolkidd = on
+        if on then enableCoolkidd() else disableCoolkidd() end
+    end,
+}).Frame.LayoutOrder = 5
+
+-- ─── Anti Lag (Reload Textures & Chunks) ───
+local function antiLag()
+    -- Alle Texturen / Decals neu laden
+    for _, v in ipairs(workspace:GetDescendants()) do
+        if v:IsA("Decal") or v:IsA("Texture") then
+            local old = v.Texture
+            v.Texture = ""
+            task.wait()
+            v.Texture = old
+        elseif v:IsA("MeshPart") then
+            local old = v.TextureID
+            v.TextureID = ""
+            task.wait()
+            v.TextureID = old
+        end
+    end
+    -- Chunks neu rendern
+    if workspace.CurrentCamera then
+        workspace.CurrentCamera.CFrame = workspace.CurrentCamera.CFrame
+    end
+end
+
+local antiLagBtn = Instance.new("TextButton")
+antiLagBtn.Size = UDim2.new(1, 0, 0, 34)
+antiLagBtn.BackgroundColor3 = COLORS.Row
+antiLagBtn.BorderSizePixel = 0
+antiLagBtn.Text = "Reload all textures and chunks"
+antiLagBtn.Font = Enum.Font.GothamMedium
+antiLagBtn.TextSize = 12
+antiLagBtn.TextColor3 = COLORS.Text
+antiLagBtn.AutoButtonColor = false
+antiLagBtn.LayoutOrder = 6
+antiLagBtn.Parent = visualsScroll
+Instance.new("UICorner", antiLagBtn).CornerRadius = UDim.new(0, 6)
+
+antiLagBtn.MouseButton1Click:Connect(function()
+    antiLagBtn.Text = "Reloading..."
+    task.spawn(function()
+        antiLag()
+        antiLagBtn.Text = "Done!"
+        task.wait(1)
+        antiLagBtn.Text = "Reload all textures and chunks"
+    end)
+end)
+
+-- ─── No Fog ───
+local function enableNoFog()
+    Lighting.FogEnd = 100000
+    Lighting.FogStart = 100000
+end
+
+local function disableNoFog()
+    Lighting.FogEnd = origLighting.FogEnd
+    Lighting.FogStart = origLighting.FogStart
+    Lighting.FogColor = origLighting.FogColor
+end
+
+createFeature(visualsScroll, {
+    Label = "No Fog",
+    Toggle = true,
+    OnToggle = function(on)
+        visualsState.nofog = on
+        if on then enableNoFog() else disableNoFog() end
+    end,
+}).Frame.LayoutOrder = 7
+
+-- ─── Custom FOV ───
+local function applyFov(v)
+    local cam = workspace.CurrentCamera
+    if cam then cam.FieldOfView = v end
+end
+
+createFeature(visualsScroll, {
+    Label = "Custom FOV",
+    Toggle = true,
+    Slider = { 30, 150, 70 },
+    OnToggle = function(on)
+        visualsState.customFov = on
+        if on then applyFov(visualsState.fovValue)
+        else applyFov(origFov) end
+    end,
+    OnSlider = function(v)
+        visualsState.fovValue = v
+        if visualsState.customFov then applyFov(v) end
+    end,
+}).Frame.LayoutOrder = 8
+
+-- ═══════════════════════════════════════════════════════════
 selectTab("Info")
 
 ------------------------------------------------------------
@@ -1957,6 +2334,10 @@ local NoBtn  = makeDialogBtn("No",  UDim2.new(1, -135, 1, -50), COLORS.Red)
 YesBtn.MouseButton1Click:Connect(function()
     task.spawn(stopFling)
     stopView()
+    stopFreecam()
+    disableXray()
+    disableCoolkidd()
+    if visualsState.infZoom then disableInfZoom() end
     ScreenGui:Destroy()
 end)
 NoBtn.MouseButton1Click:Connect(function() ConfirmFrame.Visible = false end)
