@@ -1,6 +1,6 @@
 --[[
     MTRN Projects V1.3
-    Complete - Info + Player + ESP + Fling + Visuals (mit allen Fixes)
+    Complete - Info + Player + ESP + Fling + Visuals (mit Anti-Reset)
 --]]
 
 local Players          = game:GetService("Players")
@@ -1151,6 +1151,32 @@ tpBtn.MouseButton1Click:Connect(function()
     end
 end)
 
+-- ─── FORCE LOOP (Anti-Reset) ───
+RunService.Heartbeat:Connect(function()
+    local hum = getHumanoid()
+
+    if state.walkSpeedEnabled and hum then
+        if hum.WalkSpeed ~= state.walkSpeedValue then
+            hum.WalkSpeed = state.walkSpeedValue
+        end
+    end
+
+    if state.jumpPowerEnabled and hum then
+        if hum.UseJumpPower ~= true then
+            hum.UseJumpPower = true
+        end
+        if hum.JumpPower ~= state.jumpPowerValue then
+            hum.JumpPower = state.jumpPowerValue
+        end
+    end
+
+    if state.gravityEnabled then
+        if workspace.Gravity ~= state.gravityValue then
+            workspace.Gravity = state.gravityValue
+        end
+    end
+end)
+
 -- ═══════════════════════════════════════════════════════════
 -- 🎯 ESP TAB
 -- ═══════════════════════════════════════════════════════════
@@ -1982,7 +2008,6 @@ createFeature(visualsScroll, {
     end,
 }).Frame.LayoutOrder = 1
 
--- Freecam mobile buttons
 local freecamButtons = Instance.new("Frame")
 freecamButtons.Size = UDim2.new(0, 130, 0, 130)
 freecamButtons.Position = UDim2.new(0, 20, 0.5, -65)
@@ -2065,7 +2090,6 @@ createFeature(visualsScroll, {
     end,
 }).Frame.LayoutOrder = 2
 
--- Freecam movement (arrow keys + mobile buttons)
 RunService.RenderStepped:Connect(function(dt)
     if not visState.freecam then return end
     local cam = workspace.CurrentCamera
@@ -2092,7 +2116,6 @@ RunService.RenderStepped:Connect(function(dt)
     end
 end)
 
--- Freecam rotation: PC mouse (per-frame delta)
 RunService.RenderStepped:Connect(function()
     if not visState.freecam then return end
     if UserInputService.TouchEnabled then return end
@@ -2108,7 +2131,6 @@ RunService.RenderStepped:Connect(function()
         * CFrame.Angles(-delta.Y * sens, 0, 0)
 end)
 
--- Freecam rotation: Mobile touch swipe
 local freeLookTouch = nil
 local lastTouchPos = nil
 
@@ -2213,7 +2235,6 @@ workspace.DescendantAdded:Connect(function(obj)
     if visState.xray then applyXrayToPart(obj) end
 end)
 
--- c00lkidd Mode (überall + Auto-Apply)
 local C00LKIDD_TEXTURE = "rbxassetid://8408806737"
 
 local function applyTextureToObject(obj)
@@ -2277,7 +2298,6 @@ createFeature(visualsScroll, {
     end,
 }).Frame.LayoutOrder = 5
 
--- Auto-Apply c00lkidd auf neue Teile
 workspace.DescendantAdded:Connect(function(obj)
     if visState.c00lkidd then
         applyTextureToObject(obj)
@@ -2308,7 +2328,6 @@ for _, plr in ipairs(Players:GetPlayers()) do
     end)
 end
 
--- Anti Lag
 local antiLagRow = Instance.new("Frame")
 antiLagRow.Size = UDim2.new(1, 0, 0, 44)
 antiLagRow.BackgroundTransparency = 1
