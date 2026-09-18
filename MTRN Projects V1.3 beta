@@ -1,6 +1,6 @@
 --[[
     MTRN Projects V1.3
-    Complete - Info + Player + ESP + Fling + Visuals (mit Anti-Reset)
+    Complete - Info + Player + ESP + Fling + Visuals (mit Anti-Reset + Click-to-Edit Slider)
 --]]
 
 local Players          = game:GetService("Players")
@@ -323,13 +323,14 @@ local function createToggle(parent, defaultValue, callback)
     return { Instance = toggle, Get = function() return state end, Set = set }
 end
 
+-- ✅ Slider mit Click-to-Edit
 local function createSlider(parent, minV, maxV, defaultV, callback)
     local wrap = Instance.new("Frame")
     wrap.Size = UDim2.new(1, 0, 1, 0)
     wrap.BackgroundTransparency = 1
     wrap.Parent = parent
 
-    local valueLabel = Instance.new("TextLabel")
+    local valueLabel = Instance.new("TextBox")
     valueLabel.Size = UDim2.new(0, 46, 1, 0)
     valueLabel.Position = UDim2.new(1, -46, 0, 0)
     valueLabel.BackgroundColor3 = COLORS.Row
@@ -338,6 +339,8 @@ local function createSlider(parent, minV, maxV, defaultV, callback)
     valueLabel.Font = Enum.Font.GothamBold
     valueLabel.TextSize = 11
     valueLabel.TextColor3 = COLORS.Text
+    valueLabel.ClearTextOnFocus = false
+    valueLabel.TextEditable = true
     valueLabel.Parent = wrap
     Instance.new("UICorner", valueLabel).CornerRadius = UDim.new(0, 4)
 
@@ -368,14 +371,23 @@ local function createSlider(parent, minV, maxV, defaultV, callback)
 
     local value = defaultV
     local dragging = false
+    local updatingFromText = false
+
+    local function applyValue(v, silent)
+        v = math.clamp(math.floor(v + 0.5), minV, maxV)
+        value = v
+        local rel = (v - minV) / (maxV - minV)
+        fill.Size = UDim2.new(rel, 0, 1, 0)
+        knob.Position = UDim2.new(rel, 0, 0.5, 0)
+        if not updatingFromText then
+            valueLabel.Text = tostring(v)
+        end
+        if not silent and callback then callback(v) end
+    end
 
     local function updateFromX(x)
         local rel = math.clamp((x - bar.AbsolutePosition.X) / bar.AbsoluteSize.X, 0, 1)
-        value = math.floor(minV + (maxV - minV) * rel + 0.5)
-        fill.Size = UDim2.new(rel, 0, 1, 0)
-        knob.Position = UDim2.new(rel, 0, 0.5, 0)
-        valueLabel.Text = tostring(value)
-        if callback then callback(value) end
+        applyValue(minV + (maxV - minV) * rel)
     end
 
     bar.InputBegan:Connect(function(input)
@@ -398,18 +410,34 @@ local function createSlider(parent, minV, maxV, defaultV, callback)
         end
     end)
 
-    local initRel = (defaultV - minV) / (maxV - minV)
-    fill.Size = UDim2.new(initRel, 0, 1, 0)
-    knob.Position = UDim2.new(initRel, 0, 0.5, 0)
+    -- Click-to-Edit
+    valueLabel.Focused:Connect(function()
+        valueLabel.BackgroundColor3 = COLORS.Accent
+    end)
+
+    local function commitTextInput()
+        valueLabel.BackgroundColor3 = COLORS.Row
+        updatingFromText = true
+
+        local num = tonumber(valueLabel.Text)
+        if num then
+            applyValue(num)
+        else
+            valueLabel.Text = tostring(value)
+        end
+
+        updatingFromText = false
+    end
+
+    valueLabel.FocusLost:Connect(function()
+        commitTextInput()
+    end)
+
+    applyValue(defaultV, true)
 
     return {
         Set = function(v)
-            v = math.clamp(v, minV, maxV)
-            value = v
-            local rel = (v - minV) / (maxV - minV)
-            fill.Size = UDim2.new(rel, 0, 1, 0)
-            knob.Position = UDim2.new(rel, 0, 0.5, 0)
-            valueLabel.Text = tostring(v)
+            applyValue(v)
         end,
         Get = function() return value end,
     }
