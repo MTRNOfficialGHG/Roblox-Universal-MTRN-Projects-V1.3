@@ -1,6 +1,6 @@
 --[[
     MTRN Projects V1.3
-    Complete - Info + Player + ESP + Fling + Visuals (mit Anti-Reset + Click-to-Edit Slider)
+    Complete - Info + Player + ESP + Fling + Visuals + More Scripts
 --]]
 
 local Players          = game:GetService("Players")
@@ -33,6 +33,19 @@ local COLORS = {
     Accent     = Color3.fromRGB(90, 130, 200),
     Green      = Color3.fromRGB(80, 180, 100),
     Red        = Color3.fromRGB(200, 60, 60),
+}
+
+local SCRIPT_COLORS = {
+    Blau    = Color3.fromRGB(90, 130, 200),
+    Grün    = Color3.fromRGB(80, 180, 100),
+    Rot     = Color3.fromRGB(200, 60, 60),
+    Orange  = Color3.fromRGB(230, 150, 60),
+    Lila    = Color3.fromRGB(150, 100, 200),
+    Pink    = Color3.fromRGB(230, 100, 170),
+    Türkis  = Color3.fromRGB(70, 180, 190),
+    Gelb    = Color3.fromRGB(220, 200, 70),
+    Grau    = Color3.fromRGB(90, 95, 115),
+    Weiß    = Color3.fromRGB(200, 200, 210),
 }
 
 local ScreenGui = Instance.new("ScreenGui")
@@ -274,8 +287,9 @@ local function selectTab(name)
     end
 end
 
-local TAB_LIST = { "Info", "Player", "ESP", "Fling", "Visuals", "Settings" }
-local BUILT_TABS = { Info = true, Player = true, ESP = true, Fling = true, Visuals = true }
+-- ✅ Settings → More scripts
+local TAB_LIST = { "Info", "Player", "ESP", "Fling", "Visuals", "More scripts" }
+local BUILT_TABS = { Info = true, Player = true, ESP = true, Fling = true, Visuals = true, ["More scripts"] = true }
 
 for i, name in ipairs(TAB_LIST) do
     local btn, accent = createTab(name, i)
@@ -323,7 +337,6 @@ local function createToggle(parent, defaultValue, callback)
     return { Instance = toggle, Get = function() return state end, Set = set }
 end
 
--- ✅ Slider mit Click-to-Edit
 local function createSlider(parent, minV, maxV, defaultV, callback)
     local wrap = Instance.new("Frame")
     wrap.Size = UDim2.new(1, 0, 1, 0)
@@ -410,7 +423,6 @@ local function createSlider(parent, minV, maxV, defaultV, callback)
         end
     end)
 
-    -- Click-to-Edit
     valueLabel.Focused:Connect(function()
         valueLabel.BackgroundColor3 = COLORS.Accent
     end)
@@ -418,14 +430,12 @@ local function createSlider(parent, minV, maxV, defaultV, callback)
     local function commitTextInput()
         valueLabel.BackgroundColor3 = COLORS.Row
         updatingFromText = true
-
         local num = tonumber(valueLabel.Text)
         if num then
             applyValue(num)
         else
             valueLabel.Text = tostring(value)
         end
-
         updatingFromText = false
     end
 
@@ -436,9 +446,7 @@ local function createSlider(parent, minV, maxV, defaultV, callback)
     applyValue(defaultV, true)
 
     return {
-        Set = function(v)
-            applyValue(v)
-        end,
+        Set = function(v) applyValue(v) end,
         Get = function() return value end,
     }
 end
@@ -2445,6 +2453,361 @@ createFeature(visualsScroll, {
         end
     end,
 }).Frame.LayoutOrder = 8
+
+-- ═══════════════════════════════════════════════════════════
+-- 📜 MORE SCRIPTS TAB
+-- ═══════════════════════════════════════════════════════════
+local scriptsContainer = pages["More scripts"].container
+
+local scriptsScroll = Instance.new("ScrollingFrame")
+scriptsScroll.Size = UDim2.new(1, 0, 1, 0)
+scriptsScroll.BackgroundTransparency = 1
+scriptsScroll.BorderSizePixel = 0
+scriptsScroll.ScrollBarThickness = 4
+scriptsScroll.ScrollBarImageColor3 = Color3.fromRGB(80, 90, 110)
+scriptsScroll.CanvasSize = UDim2.new(0, 0, 0, 0)
+scriptsScroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
+scriptsScroll.Parent = scriptsContainer
+
+local scriptsLayout = Instance.new("UIListLayout")
+scriptsLayout.Padding = UDim.new(0, 8)
+scriptsLayout.SortOrder = Enum.SortOrder.LayoutOrder
+scriptsLayout.Parent = scriptsScroll
+
+local scriptsPadding = Instance.new("UIPadding")
+scriptsPadding.PaddingRight = UDim.new(0, 6)
+scriptsPadding.PaddingBottom = UDim.new(0, 8)
+scriptsPadding.Parent = scriptsScroll
+
+-- ─── Section Header Helper ───
+local function makeSectionHeader(text, order)
+    local lbl = Instance.new("TextLabel")
+    lbl.Size = UDim2.new(1, 0, 0, 16)
+    lbl.BackgroundTransparency = 1
+    lbl.Text = text
+    lbl.Font = Enum.Font.GothamBold
+    lbl.TextSize = 12
+    lbl.TextColor3 = COLORS.Text
+    lbl.TextXAlignment = Enum.TextXAlignment.Left
+    lbl.LayoutOrder = order
+    lbl.Parent = scriptsScroll
+    return lbl
+end
+
+-- ─── Custom URL Section ───
+makeSectionHeader("Custom Script URL", 1)
+
+local customSection = Instance.new("Frame")
+customSection.Size = UDim2.new(1, 0, 0, 100)
+customSection.BackgroundColor3 = COLORS.Row
+customSection.BorderSizePixel = 0
+customSection.LayoutOrder = 2
+customSection.Parent = scriptsScroll
+Instance.new("UICorner", customSection).CornerRadius = UDim.new(0, 8)
+
+local customBox = Instance.new("TextBox")
+customBox.Size = UDim2.new(1, -20, 0, 28)
+customBox.Position = UDim2.new(0, 10, 0, 12)
+customBox.BackgroundColor3 = COLORS.Background
+customBox.BorderSizePixel = 0
+customBox.Text = ""
+customBox.PlaceholderText = "https://example.com/script.lua"
+customBox.Font = Enum.Font.Gotham
+customBox.TextSize = 12
+customBox.TextColor3 = COLORS.Text
+customBox.PlaceholderColor3 = COLORS.SubText
+customBox.ClearTextOnFocus = false
+customBox.TextXAlignment = Enum.TextXAlignment.Left
+customBox.Parent = customSection
+Instance.new("UICorner", customBox).CornerRadius = UDim.new(0, 6)
+
+local customLoadBtn = Instance.new("TextButton")
+customLoadBtn.Size = UDim2.new(1, -20, 0, 26)
+customLoadBtn.Position = UDim2.new(0, 10, 0, 46)
+customLoadBtn.BackgroundColor3 = COLORS.Accent
+customLoadBtn.BorderSizePixel = 0
+customLoadBtn.Text = "Load Custom Script"
+customLoadBtn.Font = Enum.Font.GothamBold
+customLoadBtn.TextSize = 12
+customLoadBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+customLoadBtn.AutoButtonColor = false
+customLoadBtn.Parent = customSection
+Instance.new("UICorner", customLoadBtn).CornerRadius = UDim.new(0, 6)
+
+local customStatus = Instance.new("TextLabel")
+customStatus.Size = UDim2.new(1, -20, 0, 14)
+customStatus.Position = UDim2.new(0, 10, 0, 78)
+customStatus.BackgroundTransparency = 1
+customStatus.Text = ""
+customStatus.Font = Enum.Font.Gotham
+customStatus.TextSize = 10
+customStatus.TextColor3 = COLORS.SubText
+customStatus.TextXAlignment = Enum.TextXAlignment.Left
+customStatus.TextTruncate = Enum.TextTruncate.AtEnd
+customStatus.Parent = customSection
+
+-- ─── Preset Scripts Section ───
+makeSectionHeader("Preset Scripts", 3)
+
+local SCRIPT_PRESETS = {
+    {
+        Name = "Universal Aimbot",
+        URL = "https://raw.githubusercontent.com/MTRNOfficialGHG/Wieleicht-der-letzte-roblox-cheat-von-gemini/refs/heads/main/Aimbot",
+        Desc = "Universal aimbot - smoothness is aiming speed",
+        Color = "Gelb",
+    },
+    {
+        Name = "Full Shiftlock System",
+        URL = "https://rawscripts.net/raw/Universal-Script-Full-Shiftlock-System-Cl*ic-193460",
+        Desc = "Classic shiftlock for mobile",
+        Color = "Blau",
+    },
+    {
+        Name = "Multifling Remastered",
+        URL = "https://raw.githubusercontent.com/RovlixTinProject/NeverX/refs/heads/main/mfr.lua",
+        Desc = "Multifling Remastered - Open Source",
+        Color = "Rot",
+    },
+    {
+        Name = "Infinity yeild",
+        URL = "https://raw.githubusercontent.com/EdgeIY/infiniteyield/master/source",
+        Desc = "Admin cmds",
+        Color = "Grau",
+    },
+    {
+        Name = "Anti Fall Damage",
+        URL = "https://rawscripts.net/raw/Universal-Script-Anti-fall-damage-138178",
+        Desc = "Anti fall damage for all games and NDS",
+        Color = "Türkis",
+    },
+    {
+        Name = "Touch Fling",
+        URL = "https://rawscripts.net/raw/Universal-Script-GHSX-FLING-GUI-158629",
+        Desc = "GHXS Fling GUI (really good)",
+        Color = "Orange",
+    },
+}
+
+-- ─── Warning Dialog (Scripts) ───
+local ScriptWarnFrame = Instance.new("Frame")
+ScriptWarnFrame.Size = UDim2.new(0, 340, 0, 190)
+ScriptWarnFrame.Position = UDim2.new(0.5, 0, 0.5, 0)
+ScriptWarnFrame.AnchorPoint = Vector2.new(0.5, 0.5)
+ScriptWarnFrame.BackgroundColor3 = COLORS.TopBar
+ScriptWarnFrame.BorderSizePixel = 0
+ScriptWarnFrame.Visible = false
+ScriptWarnFrame.ZIndex = 20
+ScriptWarnFrame.Parent = ScreenGui
+Instance.new("UICorner", ScriptWarnFrame).CornerRadius = UDim.new(0, 8)
+
+local ScriptWarnStroke = Instance.new("UIStroke")
+ScriptWarnStroke.Thickness = 1.5
+ScriptWarnStroke.Color = Color3.fromRGB(255, 200, 80)
+ScriptWarnStroke.Transparency = 0.3
+ScriptWarnStroke.Parent = ScriptWarnFrame
+
+local warnIcon = Instance.new("TextLabel")
+warnIcon.Size = UDim2.new(1, -20, 0, 22)
+warnIcon.Position = UDim2.new(0, 10, 0, 12)
+warnIcon.BackgroundTransparency = 1
+warnIcon.Text = "⚠  Script Warning"
+warnIcon.Font = Enum.Font.GothamBold
+warnIcon.TextSize = 15
+warnIcon.TextColor3 = Color3.fromRGB(255, 200, 80)
+warnIcon.TextXAlignment = Enum.TextXAlignment.Left
+warnIcon.Parent = ScriptWarnFrame
+
+local warnMsg = Instance.new("TextLabel")
+warnMsg.Size = UDim2.new(1, -20, 0, 100)
+warnMsg.Position = UDim2.new(0, 10, 0, 42)
+warnMsg.BackgroundTransparency = 1
+warnMsg.Text = ""
+warnMsg.Font = Enum.Font.Gotham
+warnMsg.TextSize = 12
+warnMsg.TextColor3 = COLORS.SubText
+warnMsg.TextWrapped = true
+warnMsg.TextXAlignment = Enum.TextXAlignment.Left
+warnMsg.TextYAlignment = Enum.TextYAlignment.Top
+warnMsg.Parent = ScriptWarnFrame
+
+local function makeScriptDialogBtn(text, pos, color)
+    local btn = Instance.new("TextButton")
+    btn.Size = UDim2.new(0, 140, 0, 32)
+    btn.Position = pos
+    btn.BackgroundColor3 = color
+    btn.BorderSizePixel = 0
+    btn.Text = text
+    btn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    btn.Font = Enum.Font.GothamBold
+    btn.TextSize = 13
+    btn.AutoButtonColor = false
+    btn.Parent = ScriptWarnFrame
+    Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 6)
+    return btn
+end
+
+local scriptWarnNoBtn  = makeScriptDialogBtn("Cancel", UDim2.new(0, 12, 1, -44), COLORS.Row)
+local scriptWarnYesBtn = makeScriptDialogBtn("Run Script", UDim2.new(1, -152, 1, -44), Color3.fromRGB(200, 100, 60))
+
+-- ─── Run Function ───
+local pendingScriptURL = nil
+local pendingScriptName = nil
+
+local function runScriptFromURL(url, displayName)
+    if type(loadstring) ~= "function" then
+        warn("[MTRN Script Hub] loadstring nicht verfügbar!")
+        customStatus.Text = "⚠ loadstring not available in this executor"
+        customStatus.TextColor3 = COLORS.Red
+        return
+    end
+    local ok, err = pcall(function()
+        loadstring(game:HttpGet(url))()
+    end)
+    if ok then
+        print("[MTRN Script Hub] ✓ Loaded: " .. tostring(displayName))
+    else
+        warn("[MTRN Script Hub] ✕ Error loading " .. tostring(displayName) .. ": " .. tostring(err))
+    end
+end
+
+local function promptScriptRun(name, url)
+    pendingScriptName = name
+    pendingScriptURL = url
+    warnMsg.Text = 'Are you sure you want to run "' .. name .. '"?\n\nOnly run scripts you trust. The developer of this UI is not responsible for any consequences.\n\nURL: ' .. url
+    ScriptWarnFrame.Visible = true
+end
+
+scriptWarnNoBtn.MouseButton1Click:Connect(function()
+    ScriptWarnFrame.Visible = false
+    pendingScriptName = nil
+    pendingScriptURL = nil
+end)
+
+scriptWarnYesBtn.MouseButton1Click:Connect(function()
+    ScriptWarnFrame.Visible = false
+    if pendingScriptURL then
+        runScriptFromURL(pendingScriptURL, pendingScriptName or "custom")
+        if pendingScriptName == "(Custom URL)" then
+            customStatus.Text = "✓ Loading custom script..."
+            customStatus.TextColor3 = COLORS.Green
+        end
+    end
+    pendingScriptName = nil
+    pendingScriptURL = nil
+end)
+
+-- ─── Custom Load Button ───
+customLoadBtn.MouseButton1Click:Connect(function()
+    local url = customBox.Text
+    if url == "" or not url:match("^https?://") then
+        customStatus.Text = "⚠ Invalid URL (must start with http:// or https://)"
+        customStatus.TextColor3 = COLORS.Red
+        return
+    end
+    promptScriptRun("(Custom URL)", url)
+end)
+
+-- ─── Preset Button Builder ───
+local function makeScriptRow(data, order)
+    local color = SCRIPT_COLORS[data.Color] or COLORS.Accent
+
+    local row = Instance.new("Frame")
+    row.Size = UDim2.new(1, 0, 0, 54)
+    row.BackgroundColor3 = COLORS.Row
+    row.BorderSizePixel = 0
+    row.LayoutOrder = order
+    row.Parent = scriptsScroll
+    Instance.new("UICorner", row).CornerRadius = UDim.new(0, 8)
+
+    -- Linker Farbbalken (Accent)
+    local bar = Instance.new("Frame")
+    bar.Size = UDim2.new(0, 4, 1, -12)
+    bar.Position = UDim2.new(0, 0, 0, 6)
+    bar.BackgroundColor3 = color
+    bar.BorderSizePixel = 0
+    bar.Parent = row
+    Instance.new("UICorner", bar).CornerRadius = UDim.new(0, 2)
+
+    -- Name
+    local nameLbl = Instance.new("TextLabel")
+    nameLbl.Size = UDim2.new(1, -100, 0, 18)
+    nameLbl.Position = UDim2.new(0, 14, 0, 6)
+    nameLbl.BackgroundTransparency = 1
+    nameLbl.Text = data.Name
+    nameLbl.Font = Enum.Font.GothamBold
+    nameLbl.TextSize = 13
+    nameLbl.TextColor3 = COLORS.Text
+    nameLbl.TextXAlignment = Enum.TextXAlignment.Left
+    nameLbl.TextTruncate = Enum.TextTruncate.AtEnd
+    nameLbl.Parent = row
+
+    -- Beschreibung
+    local descLbl = Instance.new("TextLabel")
+    descLbl.Size = UDim2.new(1, -100, 0, 22)
+    descLbl.Position = UDim2.new(0, 14, 0, 26)
+    descLbl.BackgroundTransparency = 1
+    descLbl.Text = data.Desc
+    descLbl.Font = Enum.Font.Gotham
+    descLbl.TextSize = 10
+    descLbl.TextColor3 = COLORS.SubText
+    descLbl.TextXAlignment = Enum.TextXAlignment.Left
+    descLbl.TextYAlignment = Enum.TextYAlignment.Top
+    descLbl.TextWrapped = true
+    descLbl.Parent = row
+
+    -- Run-Button
+    local runBtn = Instance.new("TextButton")
+    runBtn.Size = UDim2.new(0, 70, 0, 32)
+    runBtn.Position = UDim2.new(1, -80, 0.5, -16)
+    runBtn.BackgroundColor3 = color
+    runBtn.BorderSizePixel = 0
+    runBtn.Text = "Run"
+    runBtn.Font = Enum.Font.GothamBold
+    runBtn.TextSize = 12
+    runBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    runBtn.AutoButtonColor = false
+    runBtn.Parent = row
+    Instance.new("UICorner", runBtn).CornerRadius = UDim.new(0, 6)
+
+    -- Hover Effekt
+    local baseColor = color
+    local hoverColor = Color3.new(
+        math.min(1, baseColor.R * 1.25),
+        math.min(1, baseColor.G * 1.25),
+        math.min(1, baseColor.B * 1.25)
+    )
+
+    runBtn.MouseEnter:Connect(function()
+        TweenService:Create(runBtn, TweenInfo.new(0.15), { BackgroundColor3 = hoverColor }):Play()
+    end)
+    runBtn.MouseLeave:Connect(function()
+        TweenService:Create(runBtn, TweenInfo.new(0.15), { BackgroundColor3 = baseColor }):Play()
+    end)
+
+    runBtn.MouseButton1Click:Connect(function()
+        promptScriptRun(data.Name, data.URL)
+    end)
+
+    return row
+end
+
+for i, data in ipairs(SCRIPT_PRESETS) do
+    makeScriptRow(data, 3 + i)
+end
+
+-- Footer Info
+local footer = Instance.new("TextLabel")
+footer.Size = UDim2.new(1, 0, 0, 30)
+footer.BackgroundTransparency = 1
+footer.Text = "⚠ Scripts are executed with loadstring. Only run trusted scripts."
+footer.Font = Enum.Font.Gotham
+footer.TextSize = 10
+footer.TextColor3 = COLORS.SubText
+footer.TextXAlignment = Enum.TextXAlignment.Center
+footer.TextYAlignment = Enum.TextYAlignment.Center
+footer.TextWrapped = true
+footer.LayoutOrder = 100
+footer.Parent = scriptsScroll
 
 -- ═══════════════════════════════════════════════════════════
 selectTab("Info")
