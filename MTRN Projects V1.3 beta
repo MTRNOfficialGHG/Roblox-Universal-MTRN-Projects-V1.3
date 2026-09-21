@@ -2692,6 +2692,7 @@ local PRESETS = {
     { Name = "Infinite Yield",         URL = "https://raw.githubusercontent.com/EdgeIY/infiniteyield/master/source", Desc = "Admin commands", Color = Color3.fromRGB(50, 55, 70) },
     { Name = "Anti Fall Damage",       URL = "https://rawscripts.net/raw/Universal-Script-Anti-fall-damage-138178", Desc = "Anti fall damage for all games and NDS", Color = Color3.fromRGB(70, 180, 190) },
     { Name = "Touch Fling",            URL = "https://rawscripts.net/raw/Universal-Script-GHSX-FLING-GUI-158629", Desc = "GHXS Fling GUI (really good)", Color = Color3.fromRGB(230, 150, 60) },
+    { Name = "Floating Platform",      URL = "https://raw.githubusercontent.com/MTRNOfficialGHG/Wieleicht-der-letzte-roblox-cheat-von-gemini/refs/heads/main/Floating%20Plattform", Desc = "Universal Floating Platform basic", Color = Color3.fromRGB(90, 130, 200) },
 }
 
 local presetOrder = 3
