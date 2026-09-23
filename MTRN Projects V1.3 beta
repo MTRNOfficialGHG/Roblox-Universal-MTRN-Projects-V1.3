@@ -1,6 +1,6 @@
 --[[
     MTRN Projects V1.3
-    Complete - Info + Player + ESP (mit Moving Parts ESP) + Fling + Visuals + More Scripts
+    Complete - Info + Player + ESP (mit Moving Parts) + Fling + Visuals + More Scripts
 --]]
 
 local Players          = game:GetService("Players")
@@ -1244,83 +1244,6 @@ createFeature(espScroll, {
     OnToggle = function(on) espState.movingParts = on end,
 }).Frame.LayoutOrder = 8
 
--- ─── Moving Parts ESP Logic ───
-local MOVING_ESP_COLOR = Color3.fromRGB(180, 100, 255)
-local MOVING_LINEAR_THRESHOLD = 2
-local MOVING_ANGULAR_THRESHOLD = 1
-local movingCache = {}
-
-local function getMovingContainer(part)
-    local model = part:FindFirstAncestorOfClass("Model")
-    return model or part
-end
-
-task.spawn(function()
-    while ScreenGui.Parent do
-        task.wait(0.12)
-
-        if espState.movingParts then
-            local myChar = LocalPlayer.Character
-            local movingSet = {}
-
-            for _, obj in ipairs(workspace:GetDescendants()) do
-                if obj:IsA("BasePart") and not obj.Anchored and obj.Transparency < 1 then
-                    local linV = obj.AssemblyLinearVelocity.Magnitude
-                    local angV = obj.AssemblyAngularVelocity.Magnitude
-                    if linV > MOVING_LINEAR_THRESHOLD or angV > MOVING_ANGULAR_THRESHOLD then
-                        local container = getMovingContainer(obj)
-                        if container then
-                            local isMyChar = (container == myChar)
-                                or (container.Parent == myChar)
-                                or (container:IsA("Model") and Players:GetPlayerFromCharacter(container) == LocalPlayer)
-                            if not isMyChar then
-                                movingSet[container] = true
-                            end
-                        end
-                    end
-                end
-            end
-
-            -- Remove stale highlights
-            for container, hl in pairs(movingCache) do
-                if not movingSet[container] or not container.Parent then
-                    if hl then hl:Destroy() end
-                    movingCache[container] = nil
-                end
-            end
-
-            -- Add / update highlights
-            for container in pairs(movingSet) do
-                local hl = movingCache[container]
-                if not hl or not hl.Parent then
-                    if hl then hl:Destroy() end
-                    hl = Instance.new("Highlight")
-                    hl.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
-                    hl.FillColor = MOVING_ESP_COLOR
-                    hl.OutlineColor = MOVING_ESP_COLOR
-                    hl.FillTransparency = 0.5
-                    hl.OutlineTransparency = 0
-                    hl.Parent = container
-                    movingCache[container] = hl
-                end
-                hl.Enabled = true
-            end
-        else
-            -- Cleanup on toggle off
-            if next(movingCache) then
-                for _, hl in pairs(movingCache) do
-                    if hl then hl:Destroy() end
-                end
-                movingCache = {}
-            end
-        end
-    end
-end)
-
--- ═══════════════════════════════════════════════════════════
--- 🧠 ESP LOGIC (Drawing API)
--- ═══════════════════════════════════════════════════════════
-
 local HAS_DRAWING = (typeof(Drawing) == "table" and typeof(Drawing.new) == "function")
 
 local ESP_COLORS = {
@@ -1557,6 +1480,112 @@ if HAS_DRAWING then
 else
     warn("[MTRN] Drawing API nicht verfügbar — ESP deaktiviert.")
 end
+
+-- ─── MOVING PARTS ESP (Lilane Chams für alles was sich bewegt) ───
+local MOVING_ESP_COLOR            = Color3.fromRGB(180, 100, 255)  -- Lila
+local MOVING_VELOCITY_THRESHOLD   = 1        -- stud/s Minimum
+local MOVING_MAX_DISTANCE         = 500      -- studs Render-Radius
+local MOVING_SCAN_INTERVAL        = 0.25     -- Sek zwischen Scans
+local MOVING_MAX_HIGHLIGHTS       = 200      -- Performance-Cap
+
+local movingState = {
+    highlights = {},
+    scanAccum = 0,
+}
+
+local function addMovingHighlight(part)
+    if movingState.highlights[part] then return end
+    if not part or not part.Parent then return end
+
+    local count = 0
+    for _ in pairs(movingState.highlights) do count += 1 end
+    if count >= MOVING_MAX_HIGHLIGHTS then return end
+
+    local hl = Instance.new("Highlight")
+    hl.FillColor            = MOVING_ESP_COLOR
+    hl.OutlineColor         = MOVING_ESP_COLOR
+    hl.FillTransparency     = 0.5
+    hl.OutlineTransparency  = 0
+    hl.DepthMode            = Enum.HighlightDepthMode.AlwaysOnTop
+    hl.Parent               = part
+    movingState.highlights[part] = hl
+end
+
+local function removeMovingHighlight(part)
+    local hl = movingState.highlights[part]
+    if hl then
+        pcall(function() hl:Destroy() end)
+        movingState.highlights[part] = nil
+    end
+end
+
+local function clearAllMovingHighlights()
+    for part, hl in pairs(movingState.highlights) do
+        pcall(function() hl:Destroy() end)
+    end
+    movingState.highlights = {}
+end
+
+-- Cleanup wenn Part aus dem Spiel entfernt wird
+workspace.DescendantRemoving:Connect(function(obj)
+    if movingState.highlights[obj] then
+        movingState.highlights[obj] = nil
+    end
+end)
+
+-- Scan-Loop
+RunService.Heartbeat:Connect(function(dt)
+    -- Wenn Toggle aus: alles clearen und raus
+    if not espState.movingParts then
+        if next(movingState.highlights) ~= nil then
+            clearAllMovingHighlights()
+        end
+        return
+    end
+
+    movingState.scanAccum += dt
+    if movingState.scanAccum < MOVING_SCAN_INTERVAL then return end
+    movingState.scanAccum = 0
+
+    local camera = workspace.CurrentCamera
+    if not camera then return end
+    local camPos = camera.CFrame.Position
+
+    -- 1. Bestehende Highlights prüfen (entfernen wenn nicht mehr gültig)
+    local toRemove = {}
+    for part in pairs(movingState.highlights) do
+        if not part or not part.Parent then
+            table.insert(toRemove, part)
+        else
+            local ok, vel = pcall(function() return part.AssemblyLinearVelocity end)
+            if not ok or not vel then
+                table.insert(toRemove, part)
+            elseif vel.Magnitude < MOVING_VELOCITY_THRESHOLD then
+                table.insert(toRemove, part)
+            elseif (part.Position - camPos).Magnitude > MOVING_MAX_DISTANCE then
+                table.insert(toRemove, part)
+            end
+        end
+    end
+    for _, part in ipairs(toRemove) do
+        removeMovingHighlight(part)
+    end
+
+    -- 2. Neue bewegende Parts finden
+    local descendants = workspace:GetDescendants()
+    for _, obj in ipairs(descendants) do
+        if obj:IsA("BasePart") then
+            if not movingState.highlights[obj] then
+                local ok, vel = pcall(function() return obj.AssemblyLinearVelocity end)
+                if ok and vel and vel.Magnitude >= MOVING_VELOCITY_THRESHOLD then
+                    if (obj.Position - camPos).Magnitude <= MOVING_MAX_DISTANCE then
+                        addMovingHighlight(obj)
+                    end
+                end
+            end
+        end
+    end
+end)
 
 -- ═══════════════════════════════════════════════════════════
 -- 🌀 FLING TAB
@@ -2551,7 +2580,6 @@ scriptsScrollPadding.Parent = scriptsScroll
 
 local hasLoadstring = (typeof(loadstring) == "function")
 
--- ─── Confirm Dialog für Script Running ───
 local ScriptConfirmFrame = Instance.new("Frame")
 ScriptConfirmFrame.Size = UDim2.new(0, 320, 0, 160)
 ScriptConfirmFrame.Position = UDim2.new(0.5, 0, 0.5, 0)
@@ -2623,7 +2651,6 @@ local function showScriptConfirm(name, url, color)
     ScriptConfirmFrame.Visible = true
 end
 
--- ─── Status Label ───
 local scriptStatus = Instance.new("TextLabel")
 scriptStatus.Size = UDim2.new(1, 0, 0, 20)
 scriptStatus.Position = UDim2.new(0, 0, 0, 0)
@@ -2647,7 +2674,6 @@ local function setStatus(text, color)
     end)
 end
 
--- ─── Script Runner Core ───
 local function runScript(name, url)
     if not hasLoadstring then
         setStatus("✗ loadstring not available!", COLORS.Red)
@@ -2686,7 +2712,6 @@ scriptConfirmNo.MouseButton1Click:Connect(function()
     setStatus("Cancelled", COLORS.SubText)
 end)
 
--- ─── Custom URL Runner ───
 local customSection = Instance.new("Frame")
 customSection.Size = UDim2.new(1, 0, 0, 96)
 customSection.BackgroundColor3 = COLORS.Row
@@ -2757,7 +2782,6 @@ customRunBtn.MouseButton1Click:Connect(function()
     showScriptConfirm(displayName, url, COLORS.Accent)
 end)
 
--- ─── Preset Scripts Section ───
 local presetsLabel = Instance.new("TextLabel")
 presetsLabel.Size = UDim2.new(1, 0, 0, 20)
 presetsLabel.BackgroundTransparency = 1
@@ -2890,9 +2914,7 @@ YesBtn.MouseButton1Click:Connect(function()
     task.spawn(stopFling)
     stopView()
     stopFreecam()
-    for _, hl in pairs(movingCache) do
-        if hl then hl:Destroy() end
-    end
+    clearAllMovingHighlights()
     ScreenGui:Destroy()
 end)
 NoBtn.MouseButton1Click:Connect(function() ConfirmFrame.Visible = false end)
