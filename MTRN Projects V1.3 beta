@@ -1,7 +1,6 @@
 --[[
     MTRN Projects V1.3
-    Complete - Info + Player + ESP + Fling + Visuals + More Scripts
-    (Register-Limit Fix + MTRN namespace)
+    Complete - Info + Player + ESP + Fling (SkidFling) + Visuals + More Scripts
 --]]
 
 local Players          = game:GetService("Players")
@@ -36,7 +35,6 @@ local COLORS = {
     Red        = Color3.fromRGB(200, 60, 60),
 }
 
--- Namespace für tab-übergreifende Funktionen
 local MTRN = {
     getHRP = nil,
     getHumanoid = nil,
@@ -86,7 +84,6 @@ TitleStroke.Transparency = 0.35
 TitleStroke.Color = Color3.fromRGB(255, 255, 255)
 TitleStroke.Parent = Title
 
--- Top-Bar Info + Buttons in einem Block
 local FpsLabel, PingLabel, PlayersLabel
 local MinimizeBtn, CloseBtn
 do
@@ -199,7 +196,6 @@ do
     Content.Parent = Main
 
     local pages, tabButtons = {}, {}
-    local tabButtonsRef = tabButtons
 
     local function createTab(name, order)
         local btn = Instance.new("TextButton")
@@ -310,7 +306,6 @@ do
     end
 end
 
--- Shared helper functions
 local function getHumanoid()
     local char = LocalPlayer.Character
     if char then return char:FindFirstChildOfClass("Humanoid") end
@@ -1206,7 +1201,6 @@ do
         end
     end)
 
-    -- Force Loop (Anti-Reset)
     RunService.Heartbeat:Connect(function()
         local hum = getHumanoid()
         if state.walkSpeedEnabled and hum then
@@ -1504,10 +1498,9 @@ do
             end
         end)
     else
-        warn("[MTRN] Drawing API nicht verfügbar — ESP deaktiviert.")
+        warn("[MTRN] Drawing API nicht verfuegbar - ESP deaktiviert.")
     end
 
-    -- Moving Parts ESP
     local MOVING_ESP_COLOR            = Color3.fromRGB(180, 100, 255)
     local MOVING_VELOCITY_THRESHOLD   = 1
     local MOVING_MAX_DISTANCE         = 500
@@ -1611,7 +1604,7 @@ do
 end
 
 -- ═══════════════════════════════════════════════════════════
--- 🌀 FLING TAB
+-- 🌀 FLING TAB (SkidFling Methode)
 -- ═══════════════════════════════════════════════════════════
 do
     local flingContainer = MTRN.pages["Fling"].container
@@ -1746,8 +1739,11 @@ do
     local viewHighlight = nil
 
     local flingState = {
-        active = false, targets = {}, index = 1,
-        lastSwitch = 0, originalCF = nil, angularVel = nil,
+        active = false,
+        targets = {},
+        originalCF = nil,
+        oldFPDH = nil,
+        thread = nil,
     }
 
     local function updateStatusLabel()
@@ -1791,6 +1787,218 @@ do
             viewHighlight = hl
         end
     end
+
+    -- ═══ SKIDFLING CORE ═══
+    local function SkidFling(TargetPlayer)
+        local Character = LocalPlayer.Character
+        local Humanoid = Character and Character:FindFirstChildOfClass("Humanoid")
+        local RootPart = Humanoid and Humanoid.RootPart
+        local TCharacter = TargetPlayer.Character
+        if not TCharacter then return end
+
+        local THumanoid = TCharacter:FindFirstChildOfClass("Humanoid")
+        local TRootPart = THumanoid and THumanoid.RootPart
+        local THead = TCharacter:FindFirstChild("Head")
+        local Accessory, Handle
+        local acc = TCharacter:FindFirstChildOfClass("Accessory")
+        if acc then
+            Accessory = acc
+            Handle = acc:FindFirstChild("Handle")
+        end
+
+        if not (Character and Humanoid and RootPart) then return end
+        if THumanoid and THumanoid.Sit then return end
+
+        if THead then
+            workspace.CurrentCamera.CameraSubject = THead
+        elseif Handle then
+            workspace.CurrentCamera.CameraSubject = Handle
+        elseif THumanoid and TRootPart then
+            workspace.CurrentCamera.CameraSubject = THumanoid
+        end
+
+        if not TCharacter:FindFirstChildWhichIsA("BasePart") then return end
+
+        local FPos = function(BasePart, Pos, Ang)
+            RootPart.CFrame = CFrame.new(BasePart.Position) * Pos * Ang
+            Character:SetPrimaryPartCFrame(CFrame.new(BasePart.Position) * Pos * Ang)
+            RootPart.Velocity = Vector3.new(9e7, 9e7 * 10, 9e7)
+            RootPart.RotVelocity = Vector3.new(9e8, 9e8, 9e8)
+        end
+
+        local SFBasePart = function(BasePart)
+            local TimeToWait = 2
+            local Time = tick()
+            local Angle = 0
+            repeat
+                if not flingState.active then break end
+                if not RootPart or not RootPart.Parent then break end
+                if not THumanoid or not THumanoid.Parent then break end
+
+                if BasePart.Velocity.Magnitude < 50 then
+                    Angle = Angle + 100
+                    FPos(BasePart, CFrame.new(0, 1.5, 0) + THumanoid.MoveDirection * BasePart.Velocity.Magnitude / 1.25, CFrame.Angles(math.rad(Angle), 0, 0))
+                    task.wait()
+                    FPos(BasePart, CFrame.new(0, -1.5, 0) + THumanoid.MoveDirection * BasePart.Velocity.Magnitude / 1.25, CFrame.Angles(math.rad(Angle), 0, 0))
+                    task.wait()
+                    FPos(BasePart, CFrame.new(0, 1.5, 0) + THumanoid.MoveDirection * BasePart.Velocity.Magnitude / 1.25, CFrame.Angles(math.rad(Angle), 0, 0))
+                    task.wait()
+                    FPos(BasePart, CFrame.new(0, -1.5, 0) + THumanoid.MoveDirection * BasePart.Velocity.Magnitude / 1.25, CFrame.Angles(math.rad(Angle), 0, 0))
+                    task.wait()
+                    FPos(BasePart, CFrame.new(0, 1.5, 0) + THumanoid.MoveDirection, CFrame.Angles(math.rad(Angle), 0, 0))
+                    task.wait()
+                    FPos(BasePart, CFrame.new(0, -1.5, 0) + THumanoid.MoveDirection, CFrame.Angles(math.rad(Angle), 0, 0))
+                    task.wait()
+                else
+                    FPos(BasePart, CFrame.new(0, 1.5, THumanoid.WalkSpeed), CFrame.Angles(math.rad(90), 0, 0))
+                    task.wait()
+                    FPos(BasePart, CFrame.new(0, -1.5, -THumanoid.WalkSpeed), CFrame.Angles(0, 0, 0))
+                    task.wait()
+                    FPos(BasePart, CFrame.new(0, 1.5, THumanoid.WalkSpeed), CFrame.Angles(math.rad(90), 0, 0))
+                    task.wait()
+                    FPos(BasePart, CFrame.new(0, -1.5, 0), CFrame.Angles(math.rad(90), 0, 0))
+                    task.wait()
+                    FPos(BasePart, CFrame.new(0, -1.5, 0), CFrame.Angles(0, 0, 0))
+                    task.wait()
+                    FPos(BasePart, CFrame.new(0, -1.5, 0), CFrame.Angles(math.rad(90), 0, 0))
+                    task.wait()
+                    FPos(BasePart, CFrame.new(0, -1.5, 0), CFrame.Angles(0, 0, 0))
+                    task.wait()
+                end
+            until Time + TimeToWait < tick() or not flingState.active
+        end
+
+        workspace.FallenPartsDestroyHeight = 0/0
+
+        local BV = Instance.new("BodyVelocity")
+        BV.Parent = RootPart
+        BV.Velocity = Vector3.new(0, 0, 0)
+        BV.MaxForce = Vector3.new(9e9, 9e9, 9e9)
+
+        Humanoid:SetStateEnabled(Enum.HumanoidStateType.Seated, false)
+
+        if TRootPart then
+            SFBasePart(TRootPart)
+        elseif THead then
+            SFBasePart(THead)
+        elseif Handle then
+            SFBasePart(Handle)
+        end
+
+        BV:Destroy()
+        Humanoid:SetStateEnabled(Enum.HumanoidStateType.Seated, true)
+        workspace.CurrentCamera.CameraSubject = Humanoid
+
+        if flingState.originalCF and RootPart and RootPart.Parent then
+            local deadline = tick() + 2
+            repeat
+                RootPart.CFrame = flingState.originalCF * CFrame.new(0, 0.5, 0)
+                Character:SetPrimaryPartCFrame(flingState.originalCF * CFrame.new(0, 0.5, 0))
+                Humanoid:ChangeState(Enum.HumanoidStateType.GettingUp)
+                for _, part in pairs(Character:GetChildren()) do
+                    if part:IsA("BasePart") then
+                        part.Velocity = Vector3.new()
+                        part.RotVelocity = Vector3.new()
+                    end
+                end
+                task.wait()
+            until (RootPart.Position - flingState.originalCF.p).Magnitude < 25
+                or tick() > deadline
+                or not flingState.active
+        end
+    end
+
+    local function startFling()
+        if flingState.active then return end
+
+        local targets = {}
+        for _, plr in ipairs(Players:GetPlayers()) do
+            if plr ~= LocalPlayer and flingSelected[plr] and plr.Character then
+                local tHRP = plr.Character:FindFirstChild("HumanoidRootPart")
+                if tHRP then table.insert(targets, plr) end
+            end
+        end
+
+        if #targets == 0 then
+            statusLabel.Text = "No targets selected!"
+            task.delay(2, function()
+                if not flingState.active then updateStatusLabel() end
+            end)
+            return
+        end
+
+        local myHrp = getHRP()
+        if not myHrp then return end
+
+        flingState.active = true
+        flingState.targets = targets
+        flingState.originalCF = myHrp.CFrame
+        flingState.oldFPDH = workspace.FallenPartsDestroyHeight
+
+        updateStatusLabel()
+
+        flingState.thread = task.spawn(function()
+            while flingState.active do
+                for _, target in ipairs(flingState.targets) do
+                    if not flingState.active then break end
+                    if target and target.Parent and target.Character then
+                        SkidFling(target)
+                    end
+                    task.wait(0.1)
+                end
+                task.wait(0.5)
+            end
+        end)
+    end
+
+    local function stopFling()
+        if not flingState.active then return end
+        flingState.active = false
+
+        if flingState.oldFPDH then
+            workspace.FallenPartsDestroyHeight = flingState.oldFPDH
+            flingState.oldFPDH = nil
+        end
+
+        local myHrp = getHRP()
+        if myHrp and flingState.originalCF then
+            myHrp.CFrame = flingState.originalCF
+            myHrp.Velocity = Vector3.new()
+            myHrp.RotVelocity = Vector3.new()
+        end
+
+        local myHum = getHumanoid()
+        if myHum then
+            workspace.CurrentCamera.CameraSubject = myHum
+        end
+
+        flingState.targets = {}
+        flingState.originalCF = nil
+        updateStatusLabel()
+    end
+
+    MTRN.stopFling = stopFling
+    MTRN.stopView = stopView
+
+    startFlingBtn.MouseButton1Click:Connect(startFling)
+    stopFlingBtn.MouseButton1Click:Connect(stopFling)
+
+    RunService.Heartbeat:Connect(function()
+        if not followTarget then return end
+        if flingState.active then return end
+        if not followTarget.Character then followTarget = nil; return end
+
+        local tHRP = followTarget.Character:FindFirstChild("HumanoidRootPart")
+        local myHrp = getHRP()
+        if not tHRP or not myHrp then return end
+
+        local zOffset = -followState.xz
+        local yOffset = followState.y
+
+        local targetCF = tHRP.CFrame
+        myHrp.CFrame = targetCF * CFrame.new(0, yOffset, zOffset)
+        myHrp.Velocity = Vector3.zero
+    end)
 
     local function rebuildPlayerList()
         for _, child in ipairs(playerList:GetChildren()) do
@@ -1955,147 +2163,6 @@ do
         flingSelected = {}
         rebuildPlayerList()
     end)
-
-    local function startFling()
-        if flingState.active then return end
-
-        local targets = {}
-        for _, plr in ipairs(Players:GetPlayers()) do
-            if plr ~= LocalPlayer and flingSelected[plr] and plr.Character then
-                local tHRP = plr.Character:FindFirstChild("HumanoidRootPart")
-                if tHRP then table.insert(targets, plr) end
-            end
-        end
-        if #targets == 0 then
-            statusLabel.Text = "Kein Spieler ausgewaehlt!"
-            return
-        end
-
-        local myHrp = getHRP()
-        if not myHrp then return end
-
-        flingState.active = true
-        flingState.targets = targets
-        flingState.index = 1
-        flingState.lastSwitch = tick()
-        flingState.originalCF = myHrp.CFrame
-
-        local myChar = LocalPlayer.Character
-        if myChar then
-            for _, part in ipairs(myChar:GetDescendants()) do
-                if part:IsA("BasePart") and part.Name ~= "HumanoidRootPart" then
-                    part.CanCollide = false
-                end
-            end
-        end
-
-        myHrp.CanCollide = true
-        local spin = Instance.new("BodyAngularVelocity")
-        spin.MaxTorque = Vector3.new(math.huge, math.huge, math.huge)
-        spin.AngularVelocity = Vector3.new(99999, 99999, 99999)
-        spin.P = 1250
-        spin.Parent = myHrp
-        flingState.angularVel = spin
-
-        updateStatusLabel()
-    end
-
-    local function stopFling()
-        if not flingState.active then return end
-        flingState.active = false
-
-        if flingState.angularVel then
-            flingState.angularVel:Destroy()
-            flingState.angularVel = nil
-        end
-
-        local myHrp = getHRP()
-        local myChar = LocalPlayer.Character
-
-        if myHrp then
-            myHrp.Velocity = Vector3.new(0, 0, 0)
-            myHrp.RotVelocity = Vector3.new(0, 0, 0)
-            myHrp.Anchored = true
-            task.wait(1)
-            if flingState.originalCF then myHrp.CFrame = flingState.originalCF end
-            myHrp.Velocity = Vector3.new(0, 0, 0)
-            task.wait(0.15)
-            myHrp.Anchored = false
-        end
-
-        if myChar then
-            for _, part in ipairs(myChar:GetDescendants()) do
-                if part:IsA("BasePart") then part.CanCollide = true end
-            end
-        end
-
-        flingState.targets = {}
-        flingState.originalCF = nil
-        updateStatusLabel()
-    end
-
-    MTRN.stopFling = stopFling
-    MTRN.stopView = stopView
-
-    startFlingBtn.MouseButton1Click:Connect(startFling)
-    stopFlingBtn.MouseButton1Click:Connect(function()
-        task.spawn(stopFling)
-    end)
-
-    RunService.Heartbeat:Connect(function()
-        if not flingState.active then return end
-        local targets = flingState.targets
-        if #targets == 0 then stopFling(); return end
-
-        if #targets > 1 then
-            local now = tick()
-            if now - flingState.lastSwitch > 3.8 then
-                flingState.index = (flingState.index % #targets) + 1
-                flingState.lastSwitch = now
-            end
-        else
-            flingState.index = 1
-        end
-
-        local target = targets[flingState.index]
-        if not target or not target.Character then
-            flingState.index = (flingState.index % #targets) + 1
-            return
-        end
-
-        local tHRP = target.Character:FindFirstChild("HumanoidRootPart")
-        local myHrp = getHRP()
-        if not tHRP or not myHrp then return end
-
-        local jitter = Vector3.new(
-            (math.random() - 0.5) * 0.2,
-            (math.random() - 0.5) * 0.2,
-            (math.random() - 0.5) * 0.2
-        )
-        myHrp.CFrame = tHRP.CFrame * CFrame.new(jitter)
-        myHrp.Velocity = Vector3.new(
-            math.random(-1000, 1000),
-            math.random(-1000, 1000),
-            math.random(-1000, 1000)
-        )
-    end)
-
-    RunService.Heartbeat:Connect(function()
-        if not followTarget then return end
-        if flingState.active then return end
-        if not followTarget.Character then followTarget = nil; return end
-
-        local tHRP = followTarget.Character:FindFirstChild("HumanoidRootPart")
-        local myHrp = getHRP()
-        if not tHRP or not myHrp then return end
-
-        local zOffset = -followState.xz
-        local yOffset = followState.y
-
-        local targetCF = tHRP.CFrame
-        myHrp.CFrame = targetCF * CFrame.new(0, yOffset, zOffset)
-        myHrp.Velocity = Vector3.zero
-    end)
 end
 
 -- ═══════════════════════════════════════════════════════════
@@ -2125,14 +2192,9 @@ do
     visualsScrollPadding.Parent = visualsScroll
 
     local visState = {
-        infinityZoom = false,
-        freecam = false,
-        fullbright = false,
-        xray = false,
-        c00lkidd = false,
-        nofog = false,
-        customFov = false,
-        fovValue = 70,
+        infinityZoom = false, freecam = false, fullbright = false,
+        xray = false, c00lkidd = false, nofog = false,
+        customFov = false, fovValue = 70,
 
         origMaxZoom = LocalPlayer.CameraMaxZoomDistance,
         origMinZoom = LocalPlayer.CameraMinZoomDistance,
@@ -2145,13 +2207,11 @@ do
         origFogEnd = Lighting.FogEnd,
         origFov = workspace.CurrentCamera and workspace.CurrentCamera.FieldOfView or 70,
 
-        xrayCache = {},
-        textureCache = {},
+        xrayCache = {}, textureCache = {},
     }
 
     createFeature(visualsScroll, {
-        Label = "Infinity Zoom",
-        Toggle = true,
+        Label = "Infinity Zoom", Toggle = true,
         OnToggle = function(on)
             visState.infinityZoom = on
             if on then
@@ -2204,11 +2264,7 @@ do
     makeFreeBtn("<", UDim2.new(0, 0, 0, 46), "left")
     makeFreeBtn(">", UDim2.new(0, 92, 0, 46), "right")
 
-    local freecamData = {
-        camType = nil,
-        camSubject = nil,
-        speed = 60,
-    }
+    local freecamData = { camType = nil, camSubject = nil, speed = 60 }
 
     local function startFreecam()
         local cam = workspace.CurrentCamera
@@ -2243,9 +2299,7 @@ do
             visState.freecam = on
             if on then startFreecam() else stopFreecam() end
         end,
-        OnSlider = function(v)
-            freecamData.speed = v
-        end,
+        OnSlider = function(v) freecamData.speed = v end,
     }).Frame.LayoutOrder = 2
 
     RunService.RenderStepped:Connect(function(dt)
@@ -2326,8 +2380,7 @@ do
     end)
 
     createFeature(visualsScroll, {
-        Label = "Fullbright",
-        Toggle = true,
+        Label = "Fullbright", Toggle = true,
         OnToggle = function(on)
             visState.fullbright = on
             if on then
@@ -2381,8 +2434,7 @@ do
     end
 
     createFeature(visualsScroll, {
-        Label = "X-Ray",
-        Toggle = true,
+        Label = "X-Ray", Toggle = true,
         OnToggle = function(on)
             visState.xray = on
             if on then applyXray() else removeXray() end
@@ -2448,8 +2500,7 @@ do
     end
 
     createFeature(visualsScroll, {
-        Label = "c00lkidd Mode",
-        Toggle = true,
+        Label = "c00lkidd Mode", Toggle = true,
         OnToggle = function(on)
             visState.c00lkidd = on
             if on then applyC00lkidd() else removeC00lkidd() end
@@ -2457,9 +2508,7 @@ do
     }).Frame.LayoutOrder = 5
 
     workspace.DescendantAdded:Connect(function(obj)
-        if visState.c00lkidd then
-            applyTextureToObject(obj)
-        end
+        if visState.c00lkidd then applyTextureToObject(obj) end
     end)
 
     Players.PlayerAdded:Connect(function(plr)
@@ -2539,8 +2588,7 @@ do
     end)
 
     createFeature(visualsScroll, {
-        Label = "No FOG",
-        Toggle = true,
+        Label = "No FOG", Toggle = true,
         OnToggle = function(on)
             visState.nofog = on
             if on then
@@ -2554,18 +2602,14 @@ do
     }).Frame.LayoutOrder = 7
 
     createFeature(visualsScroll, {
-        Label = "Custom FOV",
-        Toggle = true,
+        Label = "Custom FOV", Toggle = true,
         Slider = { 30, 150, 70 },
         OnToggle = function(on)
             visState.customFov = on
             local cam = workspace.CurrentCamera
             if not cam then return end
-            if on then
-                cam.FieldOfView = visState.fovValue
-            else
-                cam.FieldOfView = visState.origFov
-            end
+            if on then cam.FieldOfView = visState.fovValue
+            else cam.FieldOfView = visState.origFov end
         end,
         OnSlider = function(v)
             visState.fovValue = v
@@ -2704,16 +2748,13 @@ do
             setStatus("loadstring not available!", COLORS.Red)
             return
         end
-
         setStatus("Loading: " .. name .. "...", COLORS.Accent)
-
         task.spawn(function()
             local ok, result = pcall(function()
                 local code = game:HttpGet(url)
                 local fn = loadstring(code)
                 if fn then fn() end
             end)
-
             if ok then
                 setStatus("Loaded: " .. name, COLORS.Green)
             else
@@ -2891,7 +2932,6 @@ do
     end
 end
 
--- ═══════════════════════════════════════════════════════════
 MTRN.selectTab("Info")
 
 -- ═══════════════════════════════════════════════════════════
@@ -2951,9 +2991,6 @@ do
     CloseBtn.MouseButton1Click:Connect(function() ConfirmFrame.Visible = true end)
 end
 
--- ═══════════════════════════════════════════════════════════
--- RGB ANIMATION
--- ═══════════════════════════════════════════════════════════
 do
     local currentHue = 0
     task.spawn(function()
@@ -2972,9 +3009,6 @@ do
     end)
 end
 
--- ═══════════════════════════════════════════════════════════
--- STATS
--- ═══════════════════════════════════════════════════════════
 do
     task.spawn(function()
         local frames, lastTick = 0, tick()
@@ -2997,9 +3031,6 @@ do
     end)
 end
 
--- ═══════════════════════════════════════════════════════════
--- DRAG
--- ═══════════════════════════════════════════════════════════
 do
     local dragging, dragInput, dragStart, startPos
     local function updateDrag(input)
