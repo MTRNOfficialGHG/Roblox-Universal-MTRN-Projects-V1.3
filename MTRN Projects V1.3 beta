@@ -1,6 +1,6 @@
 --[[
     MTRN Projects V1.3
-    Complete - Info + Player + ESP + Fling (SkidFling) + Visuals + More Scripts
+    Complete - Info + Player + ESP + Fling (SkidFling + SafeStop) + Visuals + More Scripts
 --]]
 
 local Players          = game:GetService("Players")
@@ -1604,7 +1604,7 @@ do
 end
 
 -- ═══════════════════════════════════════════════════════════
--- 🌀 FLING TAB (SkidFling Methode)
+-- 🌀 FLING TAB (SkidFling + View Follow + SafeStop)
 -- ═══════════════════════════════════════════════════════════
 do
     local flingContainer = MTRN.pages["Fling"].container
@@ -1753,7 +1753,11 @@ do
             count, flingState.active and "Yes" or "No")
     end
 
+    -- ✅ VIEW FOLLOWS PLAYER THROUGH DEATH + RESPAWN
+    local viewConnection = nil
+
     local function stopView()
+        if viewConnection then viewConnection:Disconnect(); viewConnection = nil end
         if viewTarget then
             local cam = workspace.CurrentCamera
             local myHum = LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
@@ -1786,6 +1790,28 @@ do
             hl.Parent = myChar
             viewHighlight = hl
         end
+
+        viewConnection = RunService.Heartbeat:Connect(function()
+            if viewTarget ~= plr then return end
+            local char = plr.Character
+            if not char then return end
+
+            local hum = char:FindFirstChildOfClass("Humanoid")
+
+            if hum and hum.Health > 0 then
+                if cam.CameraSubject ~= hum then
+                    cam.CameraSubject = hum
+                end
+            else
+                local head = char:FindFirstChild("Head")
+                local hrp  = char:FindFirstChild("HumanoidRootPart")
+                if head then
+                    if cam.CameraSubject ~= head then cam.CameraSubject = head end
+                elseif hrp then
+                    if cam.CameraSubject ~= hrp then cam.CameraSubject = hrp end
+                end
+            end
+        end)
     end
 
     -- ═══ SKIDFLING CORE ═══
@@ -1951,9 +1977,12 @@ do
         end)
     end
 
+    -- ✅ SAFE STOP — kein Selbst-Fling
     local function stopFling()
         if not flingState.active then return end
         flingState.active = false
+
+        task.wait(0.1)
 
         if flingState.oldFPDH then
             workspace.FallenPartsDestroyHeight = flingState.oldFPDH
@@ -1961,10 +1990,31 @@ do
         end
 
         local myHrp = getHRP()
-        if myHrp and flingState.originalCF then
-            myHrp.CFrame = flingState.originalCF
+        local myChar = LocalPlayer.Character
+
+        if myHrp then
             myHrp.Velocity = Vector3.new()
             myHrp.RotVelocity = Vector3.new()
+            myHrp.Anchored = true
+
+            if myChar then
+                for _, part in ipairs(myChar:GetDescendants()) do
+                    if part:IsA("BasePart") then
+                        part.Velocity = Vector3.new()
+                        part.RotVelocity = Vector3.new()
+                    end
+                end
+            end
+
+            task.wait(0.6)
+
+            if flingState.originalCF then
+                myHrp.CFrame = flingState.originalCF
+            end
+
+            task.wait(0.15)
+
+            myHrp.Anchored = false
         end
 
         local myHum = getHumanoid()
@@ -1974,14 +2024,15 @@ do
 
         flingState.targets = {}
         flingState.originalCF = nil
+        flingState.thread = nil
         updateStatusLabel()
     end
 
     MTRN.stopFling = stopFling
     MTRN.stopView = stopView
 
-    startFlingBtn.MouseButton1Click:Connect(startFling)
-    stopFlingBtn.MouseButton1Click:Connect(stopFling)
+    startFlingBtn.MouseButton1Click:Connect(function() task.spawn(startFling) end)
+    stopFlingBtn.MouseButton1Click:Connect(function() task.spawn(stopFling) end)
 
     RunService.Heartbeat:Connect(function()
         if not followTarget then return end
