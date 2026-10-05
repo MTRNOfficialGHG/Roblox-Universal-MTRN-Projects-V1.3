@@ -1,6 +1,6 @@
 --[[
     MTRN Projects V1.3
-    Complete - Info + Player + ESP + Fling (SkidFling + SafeStop) + Visuals + More Scripts
+    Complete - Info + Player + ESP (mit Tracers + Moving Parts) + Fling (SkidFling + SafeStop) + Visuals + More Scripts
 --]]
 
 local Players          = game:GetService("Players")
@@ -1219,7 +1219,7 @@ do
 end
 
 -- ═══════════════════════════════════════════════════════════
--- 🎯 ESP TAB
+-- 🎯 ESP TAB (mit Tracers)
 -- ═══════════════════════════════════════════════════════════
 do
     local espContainer = MTRN.pages["ESP"].container
@@ -1247,6 +1247,7 @@ do
     local espState = {
         chams = false, box = false, name = false, distance = false,
         hpBar = false, skeleton = false, teamCheck = false,
+        tracers = false,
         movingParts = false,
     }
 
@@ -1256,13 +1257,19 @@ do
     createFeature(espScroll, { Label = "Distance ESP", Toggle = true, OnToggle = function(on) espState.distance = on end }).Frame.LayoutOrder = 4
     createFeature(espScroll, { Label = "HP Bar ESP", Toggle = true, OnToggle = function(on) espState.hpBar = on end }).Frame.LayoutOrder = 5
     createFeature(espScroll, { Label = "Skeleton ESP", Toggle = true, OnToggle = function(on) espState.skeleton = on end }).Frame.LayoutOrder = 6
-    createFeature(espScroll, { Label = "Team Check ESP", Toggle = true, OnToggle = function(on) espState.teamCheck = on end }).Frame.LayoutOrder = 7
+    createFeature(espScroll, {
+        Label = "Tracers ESP",
+        SubLabel = "Lines from bottom of screen",
+        Toggle = true,
+        OnToggle = function(on) espState.tracers = on end,
+    }).Frame.LayoutOrder = 7
+    createFeature(espScroll, { Label = "Team Check ESP", Toggle = true, OnToggle = function(on) espState.teamCheck = on end }).Frame.LayoutOrder = 8
     createFeature(espScroll, {
         Label = "Moving Parts ESP",
         SubLabel = "Purple chams on everything that moves",
         Toggle = true,
         OnToggle = function(on) espState.movingParts = on end,
-    }).Frame.LayoutOrder = 8
+    }).Frame.LayoutOrder = 9
 
     local HAS_DRAWING = (typeof(Drawing) == "table" and typeof(Drawing.new) == "function")
 
@@ -1309,6 +1316,7 @@ do
             box = Drawing.new("Square"), boxOutline = Drawing.new("Square"),
             name = Drawing.new("Text"), distance = Drawing.new("Text"),
             hpBarBg = Drawing.new("Square"), hpBarFill = Drawing.new("Square"),
+            tracerOutline = Drawing.new("Line"), tracer = Drawing.new("Line"),
             skeleton = {}, highlight = nil,
         }
         data.box.Thickness = 1; data.box.Filled = false; data.box.Transparency = 1; data.box.Visible = false
@@ -1321,6 +1329,9 @@ do
         data.hpBarBg.Filled = true; data.hpBarBg.Color = Color3.new(0, 0, 0)
         data.hpBarBg.Transparency = 0.4; data.hpBarBg.Visible = false
         data.hpBarFill.Filled = true; data.hpBarFill.Transparency = 1; data.hpBarFill.Visible = false
+        data.tracerOutline.Thickness = 3; data.tracerOutline.Transparency = 0.5
+        data.tracerOutline.Color = Color3.new(0, 0, 0); data.tracerOutline.Visible = false
+        data.tracer.Thickness = 1; data.tracer.Transparency = 1; data.tracer.Visible = false
         espCache[plr] = data
         return data
     end
@@ -1332,6 +1343,7 @@ do
             for _, v in pairs(data.skeleton) do v:Remove() end
             data.box:Remove(); data.boxOutline:Remove(); data.name:Remove()
             data.distance:Remove(); data.hpBarBg:Remove(); data.hpBarFill:Remove()
+            data.tracerOutline:Remove(); data.tracer:Remove()
             if data.highlight then data.highlight:Destroy() end
         end)
         espCache[plr] = nil
@@ -1342,6 +1354,7 @@ do
         data.box.Visible = false; data.boxOutline.Visible = false
         data.name.Visible = false; data.distance.Visible = false
         data.hpBarBg.Visible = false; data.hpBarFill.Visible = false
+        data.tracerOutline.Visible = false; data.tracer.Visible = false
         for _, line in pairs(data.skeleton) do line.Visible = false end
         if data.highlight then data.highlight.Enabled = false end
     end
@@ -1398,6 +1411,7 @@ do
             data.box.Visible = false; data.boxOutline.Visible = false
             data.name.Visible = false; data.distance.Visible = false
             data.hpBarBg.Visible = false; data.hpBarFill.Visible = false
+            data.tracerOutline.Visible = false; data.tracer.Visible = false
             for _, l in pairs(data.skeleton) do l.Visible = false end
             return
         end
@@ -1451,6 +1465,25 @@ do
             data.hpBarBg.Visible = false; data.hpBarFill.Visible = false
         end
 
+        -- Tracers: Line von Bottom-Center zu Head
+        if espState.tracers then
+            local vpSize = camera.ViewportSize
+            local fromPos = Vector2.new(vpSize.X / 2, vpSize.Y)
+            local toPos   = Vector2.new(topScreen.X, topScreen.Y)
+
+            data.tracerOutline.From = fromPos
+            data.tracerOutline.To = toPos
+            data.tracerOutline.Visible = true
+
+            data.tracer.From = fromPos
+            data.tracer.To = toPos
+            data.tracer.Color = color
+            data.tracer.Visible = true
+        else
+            data.tracerOutline.Visible = false
+            data.tracer.Visible = false
+        end
+
         if espState.skeleton then
             local connections = ensureSkeletonLines(data, char)
             for i, conn in ipairs(connections) do
@@ -1484,7 +1517,7 @@ do
 
         RunService.RenderStepped:Connect(function()
             local anyOn = espState.chams or espState.box or espState.name
-                or espState.distance or espState.hpBar or espState.skeleton
+                or espState.distance or espState.hpBar or espState.skeleton or espState.tracers
             local camera = workspace.CurrentCamera
             if not camera then return end
             for _, plr in ipairs(Players:GetPlayers()) do
@@ -1753,7 +1786,6 @@ do
             count, flingState.active and "Yes" or "No")
     end
 
-    -- ✅ VIEW FOLLOWS PLAYER THROUGH DEATH + RESPAWN
     local viewConnection = nil
 
     local function stopView()
@@ -1814,7 +1846,6 @@ do
         end)
     end
 
-    -- ═══ SKIDFLING CORE ═══
     local function SkidFling(TargetPlayer)
         local Character = LocalPlayer.Character
         local Humanoid = Character and Character:FindFirstChildOfClass("Humanoid")
@@ -1977,7 +2008,6 @@ do
         end)
     end
 
-    -- ✅ SAFE STOP — kein Selbst-Fling
     local function stopFling()
         if not flingState.active then return end
         flingState.active = false
@@ -2620,21 +2650,37 @@ do
             removeC00lkidd()
             visState.c00lkidd = false
         end
-        local count = 0
-        for _, obj in ipairs(workspace:GetDescendants()) do
-            pcall(function()
-                if obj:IsA("Decal") or obj:IsA("Texture") then
-                    local t = obj.Texture
-                    obj.Texture = ""
-                    task.wait()
-                    obj.Texture = t
-                    count += 1
-                end
+
+        antiLagBtn.Text = "Reloading..."
+
+        task.spawn(function()
+            local decals = {}
+            local count = 0
+
+            for _, obj in ipairs(workspace:GetDescendants()) do
+                pcall(function()
+                    if obj:IsA("Decal") or obj:IsA("Texture") then
+                        table.insert(decals, { obj = obj, tex = obj.Texture })
+                        obj.Texture = ""
+                        count += 1
+                    end
+                end)
+            end
+
+            task.wait(0.3)
+
+            for _, d in ipairs(decals) do
+                pcall(function()
+                    if d.obj and d.obj.Parent then
+                        d.obj.Texture = d.tex
+                    end
+                end)
+            end
+
+            antiLagBtn.Text = "Reloaded (" .. count .. ")!"
+            task.delay(2, function()
+                antiLagBtn.Text = "Reload all textures and chunks"
             end)
-        end
-        antiLagBtn.Text = "Reloaded (" .. count .. ")!"
-        task.delay(1.5, function()
-            antiLagBtn.Text = "Reload all textures and chunks"
         end)
     end)
 
