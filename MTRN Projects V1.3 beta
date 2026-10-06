@@ -36,12 +36,8 @@ local COLORS = {
 }
 
 local MTRN = {
-    getHRP = nil,
-    getHumanoid = nil,
-    stopFling = nil,
-    stopView = nil,
-    stopFreecam = nil,
-    clearAllMovingHighlights = nil,
+    getHRP = nil, getHumanoid = nil, stopFling = nil,
+    stopView = nil, stopFreecam = nil, clearAllMovingHighlights = nil,
 }
 
 local ScreenGui = Instance.new("ScreenGui")
@@ -1219,7 +1215,7 @@ do
 end
 
 -- ═══════════════════════════════════════════════════════════
--- 🎯 ESP TAB
+-- 🎯 ESP TAB (mit Tracers Fix)
 -- ═══════════════════════════════════════════════════════════
 do
     local espContainer = MTRN.pages["ESP"].container
@@ -1399,9 +1395,10 @@ do
 
         local height = onScreen and math.abs(botScreen.Y - topScreen.Y) or 0
 
-        -- Tracers: immer sichtbar (auch off-screen) + First Person Center
+        -- ✅ TRACERS FIX: Richtung-basierte Projektion (funktioniert auch bei Look-Up)
         if espState.tracers then
             local camPos = camera.CFrame.Position
+            local camCF  = camera.CFrame
             local viewport = camera.ViewportSize
             local originX, originY
 
@@ -1428,15 +1425,37 @@ do
             end
 
             local targetWorld = hrp.Position + Vector3.new(0, 2, 0)
-            local tScreen = camera:WorldToViewportPoint(targetWorld)
+            local toTarget = targetWorld - camPos
 
-            if tScreen.Z <= 0 then
-                local dir = targetWorld - camPos
-                local flipped = camPos - dir
-                tScreen = camera:WorldToViewportPoint(flipped)
+            local dirX = toTarget:Dot(camCF.RightVector)
+            local dirY = toTarget:Dot(camCF.UpVector)
+            local dirZ = toTarget:Dot(camCF.LookVector)
+
+            local screenX, screenY
+
+            if dirZ > 0.01 then
+                -- Ziel vor der Kamera: normale Projektion
+                local proj = camera:WorldToViewportPoint(targetWorld)
+                screenX = proj.X
+                screenY = proj.Y
+            else
+                -- Ziel hinter der Kamera: Tangent-basierte Projektion auf Bildschirmrand
+                local absZ = math.max(math.abs(dirZ), 0.01)
+                local tanX = dirX / absZ
+                local tanY = dirY / absZ
+
+                local maxT = 2
+                tanX = math.clamp(tanX, -maxT, maxT)
+                tanY = math.clamp(tanY, -maxT, maxT)
+
+                screenX = viewport.X / 2 + tanX * (viewport.X / 2)
+                screenY = viewport.Y / 2 - tanY * (viewport.Y / 2)
             end
 
-            local targetVec = Vector2.new(tScreen.X, tScreen.Y)
+            screenX = math.clamp(screenX, 0, viewport.X)
+            screenY = math.clamp(screenY, 0, viewport.Y)
+
+            local targetVec = Vector2.new(screenX, screenY)
 
             data.tracerOutline.From = Vector2.new(originX, originY)
             data.tracerOutline.To = targetVec
@@ -3192,4 +3211,4 @@ do
         if input.UserInputType == Enum.UserInputType.MouseButton1
         or input.UserInputType == Enum.UserInputType.Touch then dragging = false end
     end)
-end
+end 
